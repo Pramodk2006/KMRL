@@ -1,0 +1,12 @@
+
+📋 EXECUTIVE SUMMARY
+==================
+Date: 2025-09-06 10:29:35
+Totals: 6 trains inducted, 6 conflicts resolved
+Overall Performance: 79.5/100
+Status: ⚠️ ACCEPTABLE
+
+Next Steps: 
+- Monitor inducted trains for service readiness
+- Address constraint violations for ineligible trains
+- Review recommendations for potential optimizations

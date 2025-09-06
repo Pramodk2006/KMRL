@@ -14,16 +14,17 @@ from src import enhanced_optimizer  # or predictive_model / multi_objective_opti
 class InteractiveWebDashboard:
     """Interactive web dashboard for digital twin visualization"""
     
-    def __init__(self, digital_twin_engine):
+    def __init__(self, digital_twin_engine, monitor=None, iot_simulator=None, cv_system=None):
         self.digital_twin = digital_twin_engine
+        self.monitor = monitor
+        self.iot_simulator = iot_simulator
+        self.cv_system = cv_system
+        
         self.app = dash.Dash(__name__)
         self.setup_layout()
         self.setup_callbacks()
-        self.update_thread = None
-        self.is_updating = False
-        self.ai_optimizer = enhanced_optimizer  # or whichever optimizer module you want
-        self.monitor = monitoring_system
-        self.iot_processor = iot_sensor_system
+        # ... rest of your existing code
+
 
         
         

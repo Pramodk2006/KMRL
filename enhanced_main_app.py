@@ -245,7 +245,7 @@ class KMRLIntelliFleetSystem:
             
             # Start API Gateway
             logger.info("▶️ Starting API Gateway...")
-            api_thread = threading.Thread(target=self.api_gateway.start_server, daemon=True)
+            api_thread = threading.Thread(target=self.api_gateway.run_server, daemon=True)
             api_thread.start()
             
             # Start Mobile API Server
