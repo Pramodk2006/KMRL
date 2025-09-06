@@ -141,7 +141,18 @@ class DigitalTwinEngine:
         
         # Initialize scenario manager after engine setup
         self.scenario_manager = ScenarioManager(self)
+    def _inject_ai_data_into_digital_twin(self):
+        ai_state = {
+            'ai_summary': self.ai_data_processor.get_train_status_summary(),
+            'ai_train_details': self.ai_data_processor.get_detailed_train_list(),
+            'ai_performance': self.ai_data_processor.get_performance_metrics(),
+            'ai_violations': self.ai_data_processor.get_constraint_violations(),
+            'last_updated': datetime.now().isoformat()
+        }
         
+        current_state = self.digital_twin.get_current_state()
+        current_state['ai_data'] = ai_state
+   
     def _initialize_trains(self, trains_data: Dict[str, Dict[str, Any]]):
         """Initialize train states from dictionary"""
         for train_id, train_data in trains_data.items():

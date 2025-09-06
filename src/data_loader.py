@@ -1,5 +1,6 @@
 import pandas as pd
 import json
+import os
 from datetime import datetime
 from typing import Dict
 import warnings
@@ -22,7 +23,9 @@ class DataLoader:
             print(f"⚠️ Config file {config_path} not found, using defaults")
             return {"hard_constraints": {"fitness_certificate": {"enabled": True}}}
     
-    def load_trains_data(self, file_path: str = "data/trains.csv") -> pd.DataFrame:
+    def load_trains_data(self, file_path: str = None) -> pd.DataFrame:
+        if file_path is None:
+            file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'trains.csv')
         try:
             df = pd.read_csv(file_path)
             self.data_sources['trains'] = df
@@ -55,7 +58,9 @@ class DataLoader:
             self.validation_errors.append(f"Error loading trains data: {str(e)}")
             return pd.DataFrame()
     
-    def load_job_cards_data(self, file_path: str = "data/job_cards.csv") -> pd.DataFrame:
+    def load_job_cards_data(self, file_path: str = None) -> pd.DataFrame:
+        if file_path is None:
+            file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'job_cards.csv')
         try:
             df = pd.read_csv(file_path)
             self.data_sources['job_cards'] = df
@@ -73,7 +78,9 @@ class DataLoader:
             self.validation_errors.append(f"Error loading job cards data: {str(e)}")
             return pd.DataFrame()
     
-    def load_cleaning_slots_data(self, file_path: str = "data/cleaning_slots.csv") -> pd.DataFrame:
+    def load_cleaning_slots_data(self, file_path: str = None) -> pd.DataFrame:
+        if file_path is None:
+            file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'cleaning_slots.csv')
         try:
             df = pd.read_csv(file_path)
             self.data_sources['cleaning_slots'] = df
@@ -86,7 +93,9 @@ class DataLoader:
             self.validation_errors.append(f"Error loading cleaning slots data: {str(e)}")
             return pd.DataFrame()
     
-    def load_bay_config_data(self, file_path: str = "data/bay_config.csv") -> pd.DataFrame:
+    def load_bay_config_data(self, file_path: str = None) -> pd.DataFrame:
+        if file_path is None:
+            file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'bay_config.csv')
         try:
             df = pd.read_csv(file_path)
             self.data_sources['bay_config'] = df
