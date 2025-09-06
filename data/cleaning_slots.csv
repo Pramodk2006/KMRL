@@ -1,0 +1,6 @@
+cleaning_slot_id,available_bays,slot_type,estimated_time_hours
+CS1,2,deep_clean,4
+CS2,1,basic_clean,2
+CS3,2,deep_clean,4
+CS4,1,basic_clean,2
+CS5,0,maintenance,6

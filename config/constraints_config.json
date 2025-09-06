@@ -1,0 +1,41 @@
+{
+  "hard_constraints": {
+    "fitness_certificate": {
+      "enabled": true,
+      "description": "Train must have valid fitness certificate",
+      "grace_period_hours": 0,
+      "emergency_override_allowed": true
+    },
+    "job_card_status": {
+      "enabled": true,
+      "description": "All job cards must be closed",
+      "emergency_override_allowed": true
+    },
+    "cleaning_slot": {
+      "enabled": true,
+      "description": "Train must have assigned cleaning slot",
+      "allow_none": false,
+      "emergency_override_allowed": true
+    }
+  },
+  "soft_constraints": {
+    "mileage_balance": {
+      "enabled": true,
+      "target_deviation_percent": 10,
+      "max_mileage_km": 30000
+    },
+    "branding_priority": {
+      "enabled": true,
+      "min_hours_threshold": 1.0
+    },
+    "bay_geometry": {
+      "enabled": true,
+      "prefer_high_score": true
+    }
+  },
+  "validation_rules": {
+    "max_trains_per_bay": 2,
+    "min_service_trains": 3,
+    "max_maintenance_trains": 2
+  }
+}

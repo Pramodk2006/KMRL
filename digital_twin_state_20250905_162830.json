@@ -1,0 +1,268 @@
+{
+  "simulation_time": "2025-09-05T16:29:00.207951",
+  "trains": {
+    "T001": {
+      "train_id": "T001",
+      "location": "Depot_A",
+      "assigned_bay": "Bay4",
+      "status": "service",
+      "mileage_km": 15000,
+      "branding_hours_left": 12.5,
+      "fitness_valid_until": "2025-09-10T00:00:00",
+      "cleaning_slot_id": "CS1",
+      "bay_geometry_score": 8,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.276064",
+      "recent_events": [
+        {
+          "timestamp": "2025-09-05T16:28:30.276064",
+          "event_type": "status_change",
+          "old_status": "idle",
+          "new_status": "service",
+          "reason": "Inducted to Bay4"
+        }
+      ]
+    },
+    "T002": {
+      "train_id": "T002",
+      "location": "Depot_A",
+      "assigned_bay": null,
+      "status": "idle",
+      "mileage_km": 27500,
+      "branding_hours_left": 2.0,
+      "fitness_valid_until": "2025-09-04T00:00:00",
+      "cleaning_slot_id": "CS2",
+      "bay_geometry_score": 5,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.208957",
+      "recent_events": []
+    },
+    "T003": {
+      "train_id": "T003",
+      "location": "Depot_B",
+      "assigned_bay": null,
+      "status": "idle",
+      "mileage_km": 32100,
+      "branding_hours_left": 0.0,
+      "fitness_valid_until": "2025-08-31T00:00:00",
+      "cleaning_slot_id": NaN,
+      "bay_geometry_score": 3,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.208957",
+      "recent_events": []
+    },
+    "T004": {
+      "train_id": "T004",
+      "location": "Depot_A",
+      "assigned_bay": "Bay1",
+      "status": "service",
+      "mileage_km": 8400,
+      "branding_hours_left": 20.0,
+      "fitness_valid_until": "2025-09-12T00:00:00",
+      "cleaning_slot_id": "CS3",
+      "bay_geometry_score": 9,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.276064",
+      "recent_events": [
+        {
+          "timestamp": "2025-09-05T16:28:30.276064",
+          "event_type": "status_change",
+          "old_status": "idle",
+          "new_status": "service",
+          "reason": "Inducted to Bay1"
+        }
+      ]
+    },
+    "T005": {
+      "train_id": "T005",
+      "location": "Depot_A",
+      "assigned_bay": "Bay2",
+      "status": "service",
+      "mileage_km": 22300,
+      "branding_hours_left": 5.5,
+      "fitness_valid_until": "2025-09-08T00:00:00",
+      "cleaning_slot_id": "CS1",
+      "bay_geometry_score": 7,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.277065",
+      "recent_events": [
+        {
+          "timestamp": "2025-09-05T16:28:30.277065",
+          "event_type": "status_change",
+          "old_status": "idle",
+          "new_status": "service",
+          "reason": "Inducted to Bay2"
+        }
+      ]
+    },
+    "T006": {
+      "train_id": "T006",
+      "location": "Depot_B",
+      "assigned_bay": null,
+      "status": "idle",
+      "mileage_km": 18900,
+      "branding_hours_left": 8.2,
+      "fitness_valid_until": "2025-09-15T00:00:00",
+      "cleaning_slot_id": "CS4",
+      "bay_geometry_score": 6,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.208957",
+      "recent_events": []
+    },
+    "T007": {
+      "train_id": "T007",
+      "location": "Depot_A",
+      "assigned_bay": null,
+      "status": "idle",
+      "mileage_km": 29800,
+      "branding_hours_left": 1.5,
+      "fitness_valid_until": "2025-09-06T00:00:00",
+      "cleaning_slot_id": "CS2",
+      "bay_geometry_score": 4,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.208957",
+      "recent_events": []
+    },
+    "T008": {
+      "train_id": "T008",
+      "location": "Depot_B",
+      "assigned_bay": null,
+      "status": "idle",
+      "mileage_km": 12600,
+      "branding_hours_left": 15.3,
+      "fitness_valid_until": "2025-08-30T00:00:00",
+      "cleaning_slot_id": NaN,
+      "bay_geometry_score": 8,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.208957",
+      "recent_events": []
+    },
+    "T009": {
+      "train_id": "T009",
+      "location": "Depot_A",
+      "assigned_bay": null,
+      "status": "idle",
+      "mileage_km": 35200,
+      "branding_hours_left": 0.0,
+      "fitness_valid_until": "2025-09-20T00:00:00",
+      "cleaning_slot_id": "CS3",
+      "bay_geometry_score": 2,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.209957",
+      "recent_events": []
+    },
+    "T010": {
+      "train_id": "T010",
+      "location": "Depot_A",
+      "assigned_bay": "Bay2",
+      "status": "service",
+      "mileage_km": 19500,
+      "branding_hours_left": 10.8,
+      "fitness_valid_until": "2025-09-11T00:00:00",
+      "cleaning_slot_id": "CS4",
+      "bay_geometry_score": 7,
+      "failure_probability": 0.1,
+      "last_updated": "2025-09-05T16:28:30.276064",
+      "recent_events": [
+        {
+          "timestamp": "2025-09-05T16:28:30.276064",
+          "event_type": "status_change",
+          "old_status": "idle",
+          "new_status": "service",
+          "reason": "Inducted to Bay2"
+        }
+      ]
+    }
+  },
+  "bays": {
+    "Bay1": {
+      "bay_id": "Bay1",
+      "bay_type": "service",
+      "max_capacity": 2,
+      "geometry_score": 9,
+      "power_available": true,
+      "occupied_trains": [
+        "T004"
+      ],
+      "scheduled_trains": [],
+      "status": "partial",
+      "utilization_rate": 0.5,
+      "last_updated": "2025-09-05T16:28:30.276064"
+    },
+    "Bay2": {
+      "bay_id": "Bay2",
+      "bay_type": "service",
+      "max_capacity": 2,
+      "geometry_score": 7,
+      "power_available": true,
+      "occupied_trains": [
+        "T010",
+        "T005"
+      ],
+      "scheduled_trains": [],
+      "status": "occupied",
+      "utilization_rate": 1.0,
+      "last_updated": "2025-09-05T16:28:30.277065"
+    },
+    "Bay3": {
+      "bay_id": "Bay3",
+      "bay_type": "maintenance",
+      "max_capacity": 1,
+      "geometry_score": 5,
+      "power_available": false,
+      "occupied_trains": [],
+      "scheduled_trains": [],
+      "status": "available",
+      "utilization_rate": 0.0,
+      "last_updated": "2025-09-05T16:28:30.209957"
+    },
+    "Bay4": {
+      "bay_id": "Bay4",
+      "bay_type": "service",
+      "max_capacity": 2,
+      "geometry_score": 8,
+      "power_available": true,
+      "occupied_trains": [
+        "T001",
+        "T007"
+      ],
+      "scheduled_trains": [],
+      "status": "partial",
+      "utilization_rate": 0.5,
+      "last_updated": "2025-09-05T16:28:30.276064"
+    },
+    "Bay5": {
+      "bay_id": "Bay5",
+      "bay_type": "maintenance",
+      "max_capacity": 1,
+      "geometry_score": 6,
+      "power_available": false,
+      "occupied_trains": [],
+      "scheduled_trains": [],
+      "status": "available",
+      "utilization_rate": 0.0,
+      "last_updated": "2025-09-05T16:28:30.210957"
+    },
+    "Bay6": {
+      "bay_id": "Bay6",
+      "bay_type": "storage",
+      "max_capacity": 1,
+      "geometry_score": 4,
+      "power_available": false,
+      "occupied_trains": [],
+      "scheduled_trains": [],
+      "status": "available",
+      "utilization_rate": 0.0,
+      "last_updated": "2025-09-05T16:28:30.210957"
+    }
+  },
+  "is_running": true,
+  "time_multiplier": 1.0,
+  "summary": {
+    "total_trains": 10,
+    "inducted_trains": 4,
+    "available_bays": 3,
+    "bay_utilization": 50.0,
+    "average_failure_risk": 0.1
+  }
+}

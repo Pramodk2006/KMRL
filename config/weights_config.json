@@ -1,0 +1,26 @@
+{
+  "default_weights": {
+    "service_readiness": 0.25,
+    "maintenance_penalty": 0.25,
+    "branding_priority": 0.2,
+    "mileage_balance": 0.15,
+    "shunting_cost": 0.15
+  },
+  "seasonal_adjustments": {
+    "monsoon": {
+      "maintenance_penalty": 0.35,
+      "service_readiness": 0.2
+    },
+    "festival": {
+      "branding_priority": 0.3,
+      "service_readiness": 0.3
+    }
+  },
+  "emergency_weights": {
+    "service_readiness": 0.5,
+    "maintenance_penalty": 0.3,
+    "branding_priority": 0.1,
+    "mileage_balance": 0.05,
+    "shunting_cost": 0.05
+  }
+}
