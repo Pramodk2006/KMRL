@@ -1,0 +1,59 @@
+job_card_id,train_id,job_type,department,priority,status,created_date,due_date,assigned_technician,estimated_hours,actual_hours,parts_required,safety_clearance,fitness_impact,completion_percentage
+JC434504,T001,Electrical Systems,Signalling,High,Open,2025-09-06 18:01,2025-09-11 18:01,Tech08,10,,True,True,None,0
+JC478811,T001,Electrical Systems,Mechanical,High,Pending Approval,2025-08-20 18:01,2025-08-24 18:01,Tech11,14,,False,True,Major,60
+JC681848,T001,Communication Equipment,Rolling-Stock,Medium,Overdue,2025-08-27 18:01,2025-09-02 18:01,Tech10,21,,True,False,Major,27
+JC911840,T002,Brake System Check,Rolling-Stock,Medium,Overdue,2025-08-11 18:01,2025-08-24 18:01,Tech16,19,,False,True,None,0
+JC222637,T002,Electrical Systems,Rolling-Stock,High,Closed,2025-08-30 18:01,2025-09-02 18:01,Tech09,21,7.0,True,True,Minor,13
+JC445259,T002,Door System Service,Mechanical,Low,Overdue,2025-08-28 18:01,2025-09-02 18:01,Tech11,15,,False,True,Major,0
+JC709498,T002,Electrical Systems,Signalling,High,Overdue,2025-08-11 18:01,2025-08-22 18:01,Tech09,2,,False,True,Major,36
+JC589133,T003,Communication Equipment,Signalling,Critical,Overdue,2025-09-01 18:01,2025-09-08 18:01,Tech16,8,,True,True,Major,0
+JC450099,T004,Door System Service,Mechanical,Critical,Pending Approval,2025-08-17 18:01,2025-08-25 18:01,Tech08,21,,False,True,None,27
+JC366795,T004,Electrical Systems,Mechanical,Critical,Open,2025-09-08 18:01,2025-09-14 18:01,Tech17,17,,True,True,None,0
+JC944185,T004,Brake System Check,Rolling-Stock,High,Overdue,2025-09-03 18:01,2025-09-08 18:01,Tech11,15,,True,True,Major,98
+JC719386,T004,Electrical Systems,Mechanical,High,Overdue,2025-08-24 18:01,2025-08-31 18:01,Tech15,19,,False,True,None,62
+JC236273,T005,HVAC Maintenance,Signalling,Critical,Pending Approval,2025-08-23 18:01,2025-08-26 18:01,Tech13,15,,True,False,Major,38
+JC241259,T005,Cleaning Systems,Signalling,Medium,Overdue,2025-09-04 18:01,2025-09-17 18:01,Tech20,20,,False,False,None,25
+JC466325,T005,Safety Inspection,Signalling,Low,Pending Approval,2025-09-04 18:01,2025-09-18 18:01,Tech09,4,,False,True,None,56
+JC520883,T005,Door System Service,Telecom,Medium,Overdue,2025-08-22 18:01,2025-08-28 18:01,Tech03,18,,True,True,Minor,0
+JC629982,T006,Brake System Check,Rolling-Stock,Critical,Overdue,2025-08-11 18:01,2025-08-17 18:01,Tech05,5,,True,True,Major,7
+JC427218,T007,Brake System Check,Mechanical,Critical,Overdue,2025-08-20 18:01,2025-08-25 18:01,Tech05,5,,False,False,None,0
+JC436575,T008,Communication Equipment,Rolling-Stock,High,Overdue,2025-08-21 18:01,2025-08-24 18:01,Tech16,19,,True,True,None,12
+JC169986,T008,HVAC Maintenance,Signalling,Medium,Overdue,2025-08-30 18:01,2025-09-06 18:01,Tech02,8,,False,True,Major,28
+JC495047,T008,Safety Inspection,Mechanical,Low,Pending Approval,2025-08-28 18:01,2025-09-03 18:01,Tech08,12,,True,False,None,46
+JC463783,T009,Door System Service,Electrical,Low,Closed,2025-09-04 18:01,2025-09-09 18:01,Tech14,10,15.0,True,False,Major,39
+JC352407,T010,Safety Inspection,Signalling,High,In Progress,2025-08-28 18:01,2025-09-11 18:01,Tech08,23,,True,True,Minor,94
+JC484708,T010,Bogies Inspection,Telecom,High,In Progress,2025-09-09 18:01,2025-09-18 18:01,Tech17,19,,False,True,Minor,39
+JC100087,T010,Safety Inspection,Rolling-Stock,High,Pending Approval,2025-08-31 18:01,2025-09-12 18:01,Tech04,6,,False,True,Minor,2
+JC466711,T011,Safety Inspection,Signalling,High,Overdue,2025-09-07 18:01,2025-09-15 18:01,Tech19,12,,True,True,Minor,46
+JC310636,T011,Electrical Systems,Electrical,Medium,Overdue,2025-08-20 18:01,2025-09-01 18:01,Tech12,17,,True,True,None,86
+JC721910,T012,HVAC Maintenance,Signalling,Critical,Closed,2025-08-31 18:01,2025-09-11 18:01,Tech19,19,10.0,False,True,Major,100
+JC885895,T012,Cleaning Systems,Rolling-Stock,High,Closed,2025-08-13 18:01,2025-08-27 18:01,Tech09,22,2.0,False,True,Minor,65
+JC540182,T012,Emergency Systems,Electrical,Critical,Pending Approval,2025-09-08 18:01,2025-09-21 18:01,Tech05,18,,False,False,None,4
+JC800906,T012,Bogies Inspection,Mechanical,High,Overdue,2025-09-08 18:01,2025-09-20 18:01,Tech03,21,,False,True,Minor,53
+JC259509,T013,Bogies Inspection,Rolling-Stock,Medium,Pending Approval,2025-09-05 18:01,2025-09-19 18:01,Tech20,6,,True,True,Minor,38
+JC149602,T013,Cleaning Systems,Signalling,Medium,Overdue,2025-08-17 18:01,2025-08-22 18:01,Tech18,5,,True,True,Major,0
+JC277941,T014,Emergency Systems,Signalling,Medium,Closed,2025-09-02 18:01,2025-09-10 18:01,Tech16,24,30.0,True,True,Minor,27
+JC606937,T014,Emergency Systems,Electrical,Low,Pending Approval,2025-08-26 18:01,2025-09-01 18:01,Tech07,19,,True,True,Minor,47
+JC544837,T015,Brake System Check,Electrical,Medium,Pending Approval,2025-08-24 18:01,2025-08-27 18:01,Tech08,17,,False,False,Minor,31
+JC588464,T015,Door System Service,Signalling,High,Overdue,2025-08-19 18:01,2025-08-23 18:01,Tech12,6,,False,True,Major,27
+JC908494,T015,Cleaning Systems,Mechanical,Critical,Overdue,2025-08-17 18:01,2025-08-22 18:01,Tech04,11,,True,True,Major,0
+JC526638,T015,Safety Inspection,Telecom,Medium,Overdue,2025-08-18 18:01,2025-09-01 18:01,Tech11,21,,False,True,None,94
+JC783465,T016,Safety Inspection,Signalling,Medium,Overdue,2025-09-08 18:01,2025-09-15 18:01,Tech15,4,,True,True,None,79
+JC970632,T016,Emergency Systems,Rolling-Stock,Medium,Overdue,2025-08-16 18:01,2025-08-27 18:01,Tech02,15,,True,True,Major,22
+JC125305,T016,Brake System Check,Mechanical,Medium,Open,2025-09-02 18:01,2025-09-16 18:01,Tech07,24,,True,True,None,0
+JC190550,T016,Brake System Check,Rolling-Stock,Low,Overdue,2025-08-20 18:01,2025-08-25 18:01,Tech05,13,,True,True,Major,63
+JC850242,T017,Door System Service,Signalling,Low,Overdue,2025-08-22 18:01,2025-08-26 18:01,Tech13,3,,False,True,Major,46
+JC319758,T018,Electrical Systems,Rolling-Stock,Critical,Overdue,2025-08-12 18:01,2025-08-26 18:01,Tech03,21,,False,False,Major,37
+JC340270,T018,Electrical Systems,Mechanical,Critical,Overdue,2025-09-02 18:01,2025-09-14 18:01,Tech10,2,,False,True,Minor,46
+JC701326,T019,Brake System Check,Rolling-Stock,Low,Pending Approval,2025-09-07 18:01,2025-09-16 18:01,Tech19,9,,True,True,Minor,55
+JC125857,T019,Cleaning Systems,Rolling-Stock,Low,Open,2025-09-08 18:01,2025-09-16 18:01,Tech04,21,,True,True,Major,0
+JC373331,T020,Bogies Inspection,Signalling,Medium,Pending Approval,2025-08-12 18:01,2025-08-15 18:01,Tech13,24,,True,False,None,45
+JC770567,T021,Door System Service,Electrical,High,Open,2025-09-09 18:01,2025-09-14 18:01,Tech10,12,,False,True,None,0
+JC784029,T022,Communication Equipment,Telecom,Medium,Closed,2025-08-21 18:01,2025-09-04 18:01,Tech04,20,8.0,False,True,Minor,97
+JC251035,T022,Door System Service,Rolling-Stock,High,Pending Approval,2025-08-28 18:01,2025-09-03 18:01,Tech04,10,,False,True,None,36
+JC459328,T023,Cleaning Systems,Telecom,High,Closed,2025-09-02 18:01,2025-09-15 18:01,Tech10,15,4.0,True,True,Major,50
+JC473647,T024,Cleaning Systems,Rolling-Stock,Critical,In Progress,2025-09-05 18:01,2025-09-11 18:01,Tech01,11,,True,True,Minor,15
+JC232091,T024,Bogies Inspection,Signalling,High,In Progress,2025-09-05 18:01,2025-09-12 18:01,Tech03,17,,True,True,Minor,28
+JC341378,T024,Communication Equipment,Mechanical,Critical,Pending Approval,2025-08-23 18:01,2025-09-04 18:01,Tech08,21,,False,True,None,99
+JC469088,T024,Communication Equipment,Rolling-Stock,Medium,Overdue,2025-08-18 18:01,2025-08-24 18:01,Tech19,4,,True,True,Minor,0
+JC737788,T025,Door System Service,Electrical,Critical,Overdue,2025-08-26 18:01,2025-09-04 18:01,Tech05,6,,False,False,None,0

@@ -1,7 +1,0 @@
-bay_id,geometry_score,max_capacity,bay_type,power_available
-Bay1,9,2,service,True
-Bay2,7,2,service,True
-Bay3,5,1,maintenance,False
-Bay4,8,2,service,True
-Bay5,6,1,maintenance,False
-Bay6,4,1,storage,False
