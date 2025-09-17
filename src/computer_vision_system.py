@@ -17,6 +17,10 @@ from PIL import Image
 import random
 import os
 from datetime import timedelta
+try:
+    from .db import upsert_heartbeat
+except Exception:
+    upsert_heartbeat = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -121,6 +125,11 @@ class ComputerVisionSystem:
         
         self.model.to(self.device)
         self.model.eval()
+        try:
+            if upsert_heartbeat:
+                upsert_heartbeat('cv', 'ok', 'model_loaded')
+        except Exception:
+            pass
         
         # Image preprocessing pipeline
         self.transform = transforms.Compose([
@@ -375,6 +384,18 @@ class ComputerVisionSystem:
         logger.info(f"✅ Inspection complete for {train_id}: {overall_condition} condition, {total_defects} defects found")
         
         return inspection_result
+
+    # Backward-compatible alias for tests expecting inspect_train()
+    def inspect_train(self, train_id: str):
+        result = self.perform_full_inspection(train_id)
+        # Provide a dict view expected by some tests
+        return {
+            'train_id': result.train_id,
+            'inspection_time': result.timestamp.isoformat(),
+            'views_inspected': len(self.camera_configs),
+            'defects_detected': result.total_defects,
+            'overall_condition': result.overall_condition
+        }
     
     def get_inspection_history(self, train_id: str = None, days: int = 30) -> List[InspectionResult]:
         """Get inspection history for analysis"""

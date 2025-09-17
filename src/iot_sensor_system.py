@@ -12,6 +12,10 @@ import logging
 from collections import deque
 import websockets
 import aioredis
+try:
+    from .db import upsert_heartbeat
+except Exception:
+    upsert_heartbeat = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +84,11 @@ class IoTSensorSimulator:
         self.simulation_thread = threading.Thread(target=self._simulation_loop, daemon=True)
         self.simulation_thread.start()
         logger.info("🔗 IoT sensor simulation started")
+        try:
+            if upsert_heartbeat:
+                upsert_heartbeat('iot', 'ok', 'simulation_started')
+        except Exception:
+            pass
     
     def stop_simulation(self):
         """Stop IoT sensor data simulation"""
@@ -241,7 +250,25 @@ class IoTSensorSimulator:
         
         # Sort by timestamp (newest first) and limit
         readings.sort(key=lambda x: x.timestamp, reverse=True)
-        return readings[:limit]
+        result = readings[:limit]
+        
+        # Compatibility: allow `'temperature' in readings` style checks in tests
+        class ReadingsList(list):
+            def __contains__(self, item):
+                if isinstance(item, str):
+                    return any(getattr(r, 'sensor_type', None) == item for r in self)
+                return super().__contains__(item)
+        
+        return ReadingsList(result)
+
+    # Convenience: return a dict keyed by sensor_type with latest per type
+    def get_latest_readings_by_type(self, train_id: str) -> Dict[str, SensorReading]:
+        readings = self.get_latest_readings(train_id=train_id, limit=50)
+        latest_by_type: Dict[str, SensorReading] = {}
+        for r in readings:
+            if r.sensor_type not in latest_by_type:
+                latest_by_type[r.sensor_type] = r
+        return latest_by_type
     
     def get_alerts(self) -> List[SensorReading]:
         """Get all current alerts (warning and critical readings)"""
@@ -441,11 +468,11 @@ class IoTWebSocketServer:
     def start_server(self):
         """Start WebSocket server"""
         logger.info(f"🌐 Starting IoT WebSocket server on port {self.port}")
+        # Create a new event loop for this background thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         start_server = websockets.serve(self.register_client, "localhost", self.port)
-        
-        # Create event loop for broadcasting
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(asyncio.gather(
-            start_server,
-            self.broadcast_sensor_data()
-        ))
+        loop.run_until_complete(start_server)
+        # Schedule broadcaster task
+        loop.create_task(self.broadcast_sensor_data())
+        loop.run_forever()

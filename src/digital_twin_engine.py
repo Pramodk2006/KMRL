@@ -125,7 +125,7 @@ class BayState:
 class DigitalTwinEngine:
     """Main digital twin simulation engine"""
     
-    def __init__(self, initial_data: Dict[str, Any]):
+    def __init__(self, initial_data: Dict[str, Any] = None):
         self.trains: Dict[str, TrainState] = {}
         self.bays: Dict[str, BayState] = {}
         self.simulation_time = datetime.now()
@@ -135,23 +135,14 @@ class DigitalTwinEngine:
         self.observers: List = []  # For real-time updates
         self.simulation_thread: Optional[threading.Thread] = None
         
-        # Initialize from data dictionaries
-        self._initialize_trains(initial_data.get('trains', {}))
-        self._initialize_bays(initial_data.get('bay_config', {}))
+        # Initialize from data dictionaries if provided
+        if initial_data is not None:
+            self._initialize_trains(initial_data.get('trains', {}))
+            self._initialize_bays(initial_data.get('bay_config', {}))
         
         # Initialize scenario manager after engine setup
         self.scenario_manager = ScenarioManager(self)
-    def _inject_ai_data_into_digital_twin(self):
-        ai_state = {
-            'ai_summary': self.ai_data_processor.get_train_status_summary(),
-            'ai_train_details': self.ai_data_processor.get_detailed_train_list(),
-            'ai_performance': self.ai_data_processor.get_performance_metrics(),
-            'ai_violations': self.ai_data_processor.get_constraint_violations(),
-            'last_updated': datetime.now().isoformat()
-        }
-        
-        current_state = self.digital_twin.get_current_state()
-        current_state['ai_data'] = ai_state
+    # Note: Removed stray _inject_ai_data_into_digital_twin (out-of-place)
    
     def _initialize_trains(self, trains_data: Dict[str, Dict[str, Any]]):
         """Initialize train states from dictionary"""
@@ -400,7 +391,11 @@ class DigitalTwinEngine:
     def execute_induction_plan(self, induction_plan: Dict[str, Any]):
         """Execute an AI-generated induction plan in the simulation"""
         try:
-            inducted_trains = induction_plan.get('inducted_trains', [])
+            # Backward-compatible: accept list or dict
+            if isinstance(induction_plan, list):
+                inducted_trains = induction_plan
+            else:
+                inducted_trains = induction_plan.get('inducted_trains', [])
             
             for train_info in inducted_trains:
                 train_id = train_info.get('train_id')
@@ -419,6 +414,11 @@ class DigitalTwinEngine:
             print(f"📋 Scheduled {len(inducted_trains)} train inductions")
         except Exception as e:
             print(f"Error executing induction plan: {e}")
+
+    def initialize_from_dicts(self, trains: Dict[str, Any], bays: Dict[str, Any]):
+        """Backward-compatible initializer used in tests"""
+        self._initialize_trains(trains or {})
+        self._initialize_bays(bays or {})
 
 
 class ScenarioManager:

@@ -1,0 +1,11 @@
+train_id,job_card_status,last_maintenance_date,maintenance_priority
+T001,closed,2025-08-15,low
+T002,closed,2025-08-20,medium
+T003,open,2025-08-25,high
+T004,closed,2025-09-01,low
+T005,closed,2025-08-18,medium
+T006,open,2025-08-22,high
+T007,closed,2025-08-28,medium
+T008,closed,2025-08-30,low
+T009,closed,2025-08-12,high
+T010,closed,2025-08-26,low

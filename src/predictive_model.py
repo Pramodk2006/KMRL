@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 import pickle
 import os
+import io
 try:
     import lightgbm as lgb
     LIGHTGBM_AVAILABLE = True
@@ -28,10 +29,14 @@ class PredictiveFailureModel:
         # Merge train and job card data
         merged_df = trains_df.merge(job_cards_df, on='train_id', how='left')
         
-        # Calculate days since last maintenance
-        merged_df['last_maintenance_date'] = pd.to_datetime(merged_df['last_maintenance_date'])
+        # Calculate days since last maintenance (safe fallback if column missing)
         today = datetime.now()
-        merged_df['days_since_maintenance'] = (today - merged_df['last_maintenance_date']).dt.days
+        if 'last_maintenance_date' in merged_df.columns:
+            merged_df['last_maintenance_date'] = pd.to_datetime(merged_df['last_maintenance_date'])
+            merged_df['days_since_maintenance'] = (today - merged_df['last_maintenance_date']).dt.days
+        else:
+            # Default to 15 days since maintenance if data not available
+            merged_df['days_since_maintenance'] = 15
         
         # Add seasonal factor (0-1 based on month)
         month = today.month
@@ -61,8 +66,15 @@ class PredictiveFailureModel:
         # Prepare features from historical data
         features_df = self.prepare_features(trains_df, job_cards_df)
         
-        # Merge with historical outcomes
-        train_data = historical_df.merge(features_df, on='train_id', how='inner')
+        # Merge with historical outcomes ensuring feature columns keep original names
+        # We keep features_df column names unmodified by making it the right side and
+        # applying suffixes to historical columns when collisions occur.
+        train_data = historical_df.merge(
+            features_df,
+            on='train_id',
+            how='inner',
+            suffixes=("_hist", "")
+        )
         
         # Prepare training data
         X = train_data[self.feature_columns].fillna(0)
@@ -263,13 +275,28 @@ class HistoricalPatternAnalyzer:
         if historical_df.empty:
             return {'status': 'No historical data available'}
         
-        # Convert date column
-        historical_df['date'] = pd.to_datetime(historical_df['date'])
-        historical_df['month'] = historical_df['date'].dt.month
-        historical_df['weekday'] = historical_df['date'].dt.weekday
+        # Work on a copy and ensure required columns exist with safe defaults
+        df = historical_df.copy()
+        
+        # Ensure date and time breakdown
+        df['date'] = pd.to_datetime(df['date'])
+        df['month'] = df['date'].dt.month
+        df['weekday'] = df['date'].dt.weekday
+        
+        # Add missing columns with defaults for robust aggregation
+        if 'inducted' not in df.columns:
+            df['inducted'] = 0
+        if 'actual_failure_occurred' not in df.columns:
+            df['actual_failure_occurred'] = 0
+        if 'branding_sla_met' not in df.columns:
+            df['branding_sla_met'] = 0.0
+        if 'energy_consumed_kwh' not in df.columns:
+            df['energy_consumed_kwh'] = 180.0
+        if 'passenger_complaints' not in df.columns:
+            df['passenger_complaints'] = 0
         
         # Seasonal analysis
-        monthly_stats = historical_df.groupby('month').agg({
+        monthly_stats = df.groupby('month').agg({
             'inducted': 'mean',
             'actual_failure_occurred': 'mean',
             'branding_sla_met': 'mean',
@@ -284,23 +311,23 @@ class HistoricalPatternAnalyzer:
         }
         
         # Day of week analysis
-        weekday_stats = historical_df.groupby('weekday').agg({
+        weekday_stats = df.groupby('weekday').agg({
             'inducted': 'mean',
             'passenger_complaints': 'mean'
         }).round(3)
         
         # Anomaly detection (simple statistical approach)
-        self._detect_anomalies(historical_df)
+        self._detect_anomalies(df)
         
         # Pattern insights
-        insights = self._generate_insights(historical_df)
+        insights = self._generate_insights(df)
         
         return {
             'seasonal_trends': self.seasonal_trends,
             'weekday_patterns': weekday_stats.to_dict(),
             'anomalies_detected': len(self.anomalies),
             'insights': insights,
-            'data_coverage_days': (historical_df['date'].max() - historical_df['date'].min()).days
+            'data_coverage_days': (df['date'].max() - df['date'].min()).days
         }
     
     def _detect_anomalies(self, df: pd.DataFrame):
@@ -371,3 +398,101 @@ class HistoricalPatternAnalyzer:
             'expected_failure_rate': month_failure_rate,
             'expected_energy_consumption': month_energy
         }
+
+
+# ===== Lightweight Model Registry and Training Pipeline =====
+
+class ModelRegistry:
+    """Filesystem + DB-backed registry for trained models and metrics."""
+    def __init__(self, artifacts_dir: str = 'models'):
+        from .db import insert_rows, upsert, fetch_query
+        self.insert_rows = insert_rows
+        self.upsert = upsert
+        self.fetch_query = fetch_query
+        self.artifacts_dir = artifacts_dir
+        os.makedirs(self.artifacts_dir, exist_ok=True)
+
+    def register_model(self, model_name: str, version: str, created_by: str, artifact_bytes: bytes, params: Dict) -> str:
+        import uuid
+        model_id = str(uuid.uuid4())
+        artifact_path = os.path.join(self.artifacts_dir, f"{model_id}.pkl")
+        with open(artifact_path, 'wb') as f:
+            f.write(artifact_bytes)
+        self.insert_rows('model_registry', [{
+            'model_id': model_id,
+            'model_name': model_name,
+            'version': version,
+            'created_at': datetime.utcnow().isoformat(),
+            'created_by': created_by,
+            'artifact_path': artifact_path,
+            'params_json': str(params),
+            'is_active': 0
+        }])
+        return model_id
+
+    def set_active(self, model_id: str):
+        df = self.fetch_query("SELECT model_id FROM model_registry", ())
+        ids = df['model_id'].tolist() if not df.empty else []
+        for mid in ids:
+            self.upsert('model_registry', [{'model_id': mid, 'is_active': 1 if mid == model_id else 0}], ['model_id'])
+
+    def list_models(self) -> List[Dict]:
+        df = self.fetch_query("SELECT * FROM model_registry ORDER BY created_at DESC", ())
+        return df.to_dict(orient='records') if not df.empty else []
+
+    def record_metrics(self, model_id: str, metrics: Dict[str, float]):
+        now = datetime.utcnow().isoformat()
+        rows = [{'model_id': model_id, 'timestamp': now, 'metric_name': k, 'metric_value': float(v)} for k, v in metrics.items()]
+        self.insert_rows('model_metrics', rows)
+
+
+class TrainingPipeline:
+    """Train PredictiveFailureModel, evaluate, and register in the registry."""
+    def __init__(self, registry: ModelRegistry = None):
+        self.registry = registry or ModelRegistry()
+
+    def _evaluate(self, model: PredictiveFailureModel, trains_df: pd.DataFrame, job_cards_df: pd.DataFrame) -> Dict[str, float]:
+        try:
+            features = model.prepare_features(trains_df, job_cards_df)
+            if LIGHTGBM_AVAILABLE and model.is_trained and model.model is not None:
+                X = features[model.feature_columns].fillna(0)
+                preds = model.model.predict(X)
+            else:
+                # Use fallback same as predict_failure_probability
+                preds = []
+                for _, row in features.iterrows():
+                    risk = 0.0
+                    if row['mileage_km'] > 30000:
+                        risk += 0.4
+                    if row['days_since_maintenance'] > 30:
+                        risk += 0.3
+                    if row['seasonal_factor'] > 0.6:
+                        risk += 0.2
+                    preds.append(min(risk, 0.95))
+            preds = np.array(preds)
+            return {
+                'pred_mean': float(np.mean(preds) if preds.size else 0.0),
+                'pred_std': float(np.std(preds) if preds.size else 0.0),
+                'nonzero_rate': float(np.mean(preds > 0) if preds.size else 0.0)
+            }
+        except Exception:
+            return {'pred_mean': 0.0, 'pred_std': 0.0, 'nonzero_rate': 0.0}
+
+    def train_and_register(self, historical_df: pd.DataFrame, trains_df: pd.DataFrame, job_cards_df: pd.DataFrame, created_by: str = 'system') -> Dict:
+        model = PredictiveFailureModel()
+        model.train_model(historical_df, trains_df, job_cards_df)
+        metrics = self._evaluate(model, trains_df, job_cards_df)
+        # Serialize trained model
+        buf = io.BytesIO()
+        pickle.dump({'feature_columns': model.feature_columns, 'model': model.model}, buf)
+        artifact_bytes = buf.getvalue()
+        model_id = self.registry.register_model(
+            model_name='PredictiveFailureModel',
+            version=datetime.utcnow().strftime('%Y%m%d%H%M%S'),
+            created_by=created_by,
+            artifact_bytes=artifact_bytes,
+            params={'algo': 'LightGBM' if LIGHTGBM_AVAILABLE else 'Fallback'}
+        )
+        self.registry.record_metrics(model_id, metrics)
+        self.registry.set_active(model_id)
+        return {'model_id': model_id, 'metrics': metrics}

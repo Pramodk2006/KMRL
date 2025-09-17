@@ -8,7 +8,7 @@ from .predictive_model import PredictiveFailureModel, ReinforcementLearningAgent
 class EnhancedMultiObjectiveOptimizer(MultiObjectiveOptimizer):
     """Enhanced optimizer with predictive intelligence"""
     
-    def __init__(self, constraint_result: Dict, data: Dict[str, pd.DataFrame], weights: Dict = None):
+    def __init__(self, constraint_result: Dict = None, data: Dict[str, pd.DataFrame] = None, weights: Dict = None):
         super().__init__(constraint_result, data, weights)
         
         # Initialize AI components
@@ -43,6 +43,8 @@ class EnhancedMultiObjectiveOptimizer(MultiObjectiveOptimizer):
             'seasonal_recommendations': seasonal_rec,
             'models_ready': True
         }
+        # Compatibility alias expected by tests
+        self.ai_insights['seasonal_patterns'] = pattern_results.get('seasonal_trends', {})
         
         print("✅ AI models initialized successfully")
     
@@ -99,10 +101,14 @@ class EnhancedMultiObjectiveOptimizer(MultiObjectiveOptimizer):
         risk_insights = self.failure_model.get_risk_insights(failure_predictions)
         
         # Adaptive weight adjustment using RL
+        total_trains = len(trains_df) if trains_df is not None else 0
+        avg_mileage = trains_df['mileage_km'].mean() if total_trains > 0 else 0.0
+        conflicts_ct = len(self.constraint_result.get('conflicts', [])) if isinstance(self.constraint_result, dict) else 0
+        conflict_rate = (conflicts_ct / total_trains) if total_trains > 0 else 0.0
         current_context = {
             'season': self._get_season(),
-            'avg_mileage': trains_df['mileage_km'].mean(),
-            'conflict_rate': len(self.constraint_result.get('conflicts', [])) / len(trains_df)
+            'avg_mileage': avg_mileage,
+            'conflict_rate': conflict_rate
         }
         
         # Apply seasonal weight adjustments if available

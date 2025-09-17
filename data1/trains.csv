@@ -1,0 +1,11 @@
+train_id,fitness_valid_until,mileage_km,branding_hours_left,cleaning_slot_id,bay_geometry_score,current_location
+T001,2025-09-20,15000,12.5,CS1,8,Depot_A
+T002,2025-09-24,27500,2.0,CS2,5,Depot_A
+T003,2025-08-31,32100,0.0,None,3,Depot_B
+T004,2025-09-12,8400,20.0,CS3,9,Depot_A
+T005,2025-09-08,22300,5.5,CS1,7,Depot_A
+T006,2025-09-15,18900,8.2,CS4,6,Depot_B
+T007,2025-09-06,29800,1.5,CS2,4,Depot_A
+T008,2025-08-30,12600,15.3,None,3,Depot_B
+T009,2025-09-20,35200,0.0,CS3,2,Depot_A
+T010,2025-09-10,19500,10.8,CS4,7,Depot_A

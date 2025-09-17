@@ -1,0 +1,85 @@
+date,bay_id,shift,occupied,assigned_train,staff_count,assigned_staff,cleaning_type,estimated_duration,efficiency_rating
+2025-09-04,CB1,Morning,False,,3,"Ravi Kumar, Lakshmi R, Suresh T",Standard,3,87
+2025-09-04,CB1,Afternoon,False,,2,"Maya P, Ravi Kumar",Standard,2,87
+2025-09-04,CB1,Night,False,,3,"Suresh T, Anand M, Priya S",Standard,2,89
+2025-09-04,CB2,Morning,False,,3,"Maya P, Suresh T, Lakshmi R",Express,5,93
+2025-09-04,CB2,Afternoon,False,,4,"Ravi Kumar, Suresh T, Maya P, Priya S",Deep Clean,2,91
+2025-09-04,CB2,Night,False,,4,"Lakshmi R, Priya S, Anand M, Ravi Kumar",Deep Clean,2,87
+2025-09-04,CB3,Morning,False,,2,"Priya S, Suresh T",Express,3,91
+2025-09-04,CB3,Afternoon,True,T017,3,"Maya P, Lakshmi R, Priya S",Standard,2,94
+2025-09-04,CB3,Night,True,T005,4,"Priya S, Anand M, Ravi Kumar, Lakshmi R",Express,5,94
+2025-09-04,CB4,Morning,False,,2,"Lakshmi R, Maya P",Deep Clean,6,98
+2025-09-04,CB4,Afternoon,True,T002,4,"Maya P, Priya S, Anand M, Lakshmi R",Standard,2,91
+2025-09-04,CB4,Night,False,,4,"Anand M, Ravi Kumar, Lakshmi R, Maya P",Standard,3,86
+2025-09-05,CB1,Morning,True,T012,4,"Priya S, Anand M, Suresh T, Maya P",Standard,4,95
+2025-09-05,CB1,Afternoon,False,,3,"Priya S, Ravi Kumar, Lakshmi R",Standard,4,86
+2025-09-05,CB1,Night,True,T017,2,"Anand M, Ravi Kumar",Standard,6,97
+2025-09-05,CB2,Morning,False,,2,"Suresh T, Anand M",Deep Clean,5,96
+2025-09-05,CB2,Afternoon,False,,4,"Lakshmi R, Ravi Kumar, Maya P, Suresh T",Deep Clean,2,94
+2025-09-05,CB2,Night,False,,2,"Ravi Kumar, Lakshmi R",Express,4,90
+2025-09-05,CB3,Morning,False,,2,"Ravi Kumar, Suresh T",Deep Clean,6,93
+2025-09-05,CB3,Afternoon,True,T008,3,"Lakshmi R, Priya S, Maya P",Express,4,90
+2025-09-05,CB3,Night,False,,4,"Suresh T, Lakshmi R, Maya P, Anand M",Express,3,86
+2025-09-05,CB4,Morning,False,,3,"Suresh T, Anand M, Ravi Kumar",Standard,3,88
+2025-09-05,CB4,Afternoon,False,,4,"Priya S, Maya P, Lakshmi R, Ravi Kumar",Express,5,98
+2025-09-05,CB4,Night,False,,3,"Priya S, Maya P, Suresh T",Express,3,92
+2025-09-06,CB1,Morning,False,,2,"Anand M, Ravi Kumar",Express,5,97
+2025-09-06,CB1,Afternoon,True,T022,3,"Priya S, Anand M, Maya P",Standard,6,91
+2025-09-06,CB1,Night,True,T007,2,"Anand M, Suresh T",Express,3,91
+2025-09-06,CB2,Morning,True,T019,3,"Priya S, Anand M, Suresh T",Deep Clean,4,88
+2025-09-06,CB2,Afternoon,True,T019,4,"Suresh T, Maya P, Anand M, Priya S",Express,4,96
+2025-09-06,CB2,Night,False,,4,"Maya P, Ravi Kumar, Suresh T, Lakshmi R",Express,6,98
+2025-09-06,CB3,Morning,True,T002,4,"Ravi Kumar, Maya P, Anand M, Priya S",Standard,6,97
+2025-09-06,CB3,Afternoon,False,,4,"Anand M, Maya P, Ravi Kumar, Priya S",Deep Clean,3,94
+2025-09-06,CB3,Night,False,,3,"Priya S, Suresh T, Anand M",Deep Clean,2,91
+2025-09-06,CB4,Morning,True,T018,2,"Suresh T, Anand M",Deep Clean,3,88
+2025-09-06,CB4,Afternoon,False,,3,"Suresh T, Ravi Kumar, Lakshmi R",Deep Clean,2,90
+2025-09-06,CB4,Night,False,,4,"Ravi Kumar, Priya S, Maya P, Suresh T",Express,6,88
+2025-09-07,CB1,Morning,False,,3,"Maya P, Ravi Kumar, Priya S",Standard,4,85
+2025-09-07,CB1,Afternoon,False,,3,"Lakshmi R, Maya P, Ravi Kumar",Deep Clean,2,97
+2025-09-07,CB1,Night,True,T013,2,"Anand M, Suresh T",Deep Clean,4,94
+2025-09-07,CB2,Morning,False,,4,"Suresh T, Lakshmi R, Maya P, Anand M",Standard,6,85
+2025-09-07,CB2,Afternoon,False,,3,"Lakshmi R, Ravi Kumar, Suresh T",Express,5,85
+2025-09-07,CB2,Night,False,,2,"Suresh T, Priya S",Deep Clean,2,87
+2025-09-07,CB3,Morning,True,T007,2,"Suresh T, Lakshmi R",Deep Clean,3,98
+2025-09-07,CB3,Afternoon,True,T003,4,"Priya S, Maya P, Ravi Kumar, Lakshmi R",Standard,5,88
+2025-09-07,CB3,Night,True,T012,4,"Priya S, Suresh T, Anand M, Ravi Kumar",Express,6,95
+2025-09-07,CB4,Morning,False,,3,"Priya S, Lakshmi R, Maya P",Standard,6,88
+2025-09-07,CB4,Afternoon,True,T013,3,"Ravi Kumar, Priya S, Lakshmi R",Deep Clean,6,86
+2025-09-07,CB4,Night,False,,3,"Ravi Kumar, Suresh T, Maya P",Express,3,94
+2025-09-08,CB1,Morning,True,T015,4,"Anand M, Lakshmi R, Suresh T, Priya S",Standard,2,86
+2025-09-08,CB1,Afternoon,False,,2,"Priya S, Lakshmi R",Deep Clean,4,94
+2025-09-08,CB1,Night,False,,3,"Maya P, Suresh T, Anand M",Deep Clean,5,86
+2025-09-08,CB2,Morning,True,T010,3,"Maya P, Suresh T, Priya S",Deep Clean,6,95
+2025-09-08,CB2,Afternoon,True,T020,2,"Suresh T, Lakshmi R",Deep Clean,6,85
+2025-09-08,CB2,Night,True,T008,3,"Maya P, Suresh T, Priya S",Deep Clean,6,88
+2025-09-08,CB3,Morning,True,T009,2,"Lakshmi R, Priya S",Standard,6,88
+2025-09-08,CB3,Afternoon,False,,3,"Lakshmi R, Anand M, Maya P",Standard,5,90
+2025-09-08,CB3,Night,False,,4,"Suresh T, Priya S, Maya P, Ravi Kumar",Standard,5,92
+2025-09-08,CB4,Morning,False,,3,"Maya P, Lakshmi R, Anand M",Standard,3,95
+2025-09-08,CB4,Afternoon,False,,2,"Suresh T, Maya P",Deep Clean,4,96
+2025-09-08,CB4,Night,False,,3,"Priya S, Lakshmi R, Maya P",Express,2,97
+2025-09-09,CB1,Morning,False,,4,"Maya P, Priya S, Anand M, Suresh T",Deep Clean,3,92
+2025-09-09,CB1,Afternoon,False,,4,"Lakshmi R, Suresh T, Ravi Kumar, Anand M",Deep Clean,6,97
+2025-09-09,CB1,Night,True,T001,4,"Anand M, Ravi Kumar, Lakshmi R, Suresh T",Express,6,90
+2025-09-09,CB2,Morning,False,,4,"Suresh T, Lakshmi R, Maya P, Anand M",Standard,2,98
+2025-09-09,CB2,Afternoon,True,T021,3,"Ravi Kumar, Priya S, Maya P",Express,6,95
+2025-09-09,CB2,Night,False,,4,"Anand M, Lakshmi R, Priya S, Suresh T",Standard,6,95
+2025-09-09,CB3,Morning,False,,3,"Lakshmi R, Ravi Kumar, Anand M",Deep Clean,5,95
+2025-09-09,CB3,Afternoon,False,,4,"Ravi Kumar, Lakshmi R, Maya P, Priya S",Deep Clean,3,96
+2025-09-09,CB3,Night,False,,3,"Maya P, Ravi Kumar, Suresh T",Standard,3,97
+2025-09-09,CB4,Morning,False,,2,"Lakshmi R, Suresh T",Standard,3,89
+2025-09-09,CB4,Afternoon,False,,2,"Ravi Kumar, Maya P",Deep Clean,3,91
+2025-09-09,CB4,Night,False,,4,"Ravi Kumar, Lakshmi R, Anand M, Priya S",Express,5,92
+2025-09-10,CB1,Morning,False,,4,"Lakshmi R, Maya P, Priya S, Ravi Kumar",Standard,6,97
+2025-09-10,CB1,Afternoon,True,T011,2,"Ravi Kumar, Lakshmi R",Standard,2,90
+2025-09-10,CB1,Night,True,T002,4,"Suresh T, Priya S, Lakshmi R, Maya P",Express,2,93
+2025-09-10,CB2,Morning,False,,4,"Lakshmi R, Suresh T, Ravi Kumar, Maya P",Express,2,90
+2025-09-10,CB2,Afternoon,True,T007,4,"Lakshmi R, Priya S, Anand M, Maya P",Express,6,96
+2025-09-10,CB2,Night,True,T025,2,"Ravi Kumar, Anand M",Express,6,89
+2025-09-10,CB3,Morning,True,T008,4,"Lakshmi R, Anand M, Suresh T, Ravi Kumar",Deep Clean,6,97
+2025-09-10,CB3,Afternoon,True,T001,4,"Suresh T, Anand M, Lakshmi R, Priya S",Express,4,94
+2025-09-10,CB3,Night,True,T020,2,"Anand M, Suresh T",Deep Clean,2,96
+2025-09-10,CB4,Morning,False,,4,"Lakshmi R, Priya S, Ravi Kumar, Maya P",Deep Clean,3,95
+2025-09-10,CB4,Afternoon,True,T023,2,"Priya S, Suresh T",Deep Clean,2,93
+2025-09-10,CB4,Night,False,,3,"Suresh T, Maya P, Lakshmi R",Express,6,95

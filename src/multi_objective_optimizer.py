@@ -6,8 +6,15 @@ from datetime import datetime
 class MultiObjectiveOptimizer:
     """Layer 2: Multi-Objective Scoring and Optimization"""
     
-    def __init__(self, constraint_result: Dict, data: Dict[str, pd.DataFrame], weights: Dict = None):
-        self.constraint_result = constraint_result
+    def __init__(self, constraint_result: Dict = None, data: Dict[str, pd.DataFrame] = None, weights: Dict = None):
+        # Allow no-arg init for tests; data can be provided later or auto-loaded
+        self.constraint_result = constraint_result or {}
+        if data is None:
+            try:
+                from .data_loader import DataLoader
+            except ImportError:
+                from src.data_loader import DataLoader
+            data = DataLoader().get_integrated_data()
         self.data = data
         self.weights = weights or self._get_default_weights()
         self.optimized_result = {}

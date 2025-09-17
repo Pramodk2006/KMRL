@@ -559,3 +559,19 @@ class SystemMonitor:
                     "error": str(e)
                 }
             }
+
+    # Backward-compatible collection for tests expecting a single dict
+    def collect_metrics(self) -> Dict:
+        try:
+            state = self.digital_twin.get_current_state()
+            summary = state.get('summary', {}) if isinstance(state, dict) else {}
+        except Exception:
+            summary = {}
+        perf = {}
+        if hasattr(self.ai_optimizer, 'optimized_result') and self.ai_optimizer.optimized_result:
+            perf = self.ai_optimizer.optimized_result.get('optimization_improvements', {})
+        return {
+            'timestamp': datetime.now().isoformat(),
+            'fleet_metrics': summary,
+            'performance_metrics': perf
+        }

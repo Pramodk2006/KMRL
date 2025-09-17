@@ -1,147 +1,54 @@
-# Core Web Frameworks
-dash==2.16.1
-plotly==5.17.0
-flask==3.0.0
+# KMRL IntelliFleet System Requirements
+# Core Python packages only (removed standard library modules)
+
+# Web Framework & API
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+flask==2.3.3
+flask-cors==4.0.0
 
-# Data Processing & Analysis
+# Dashboard & Visualization
+dash==2.14.2
+dash-bootstrap-components==1.5.0
+plotly==5.17.0
+dash-mantine-components==0.12.1
+
+# Data Processing & Analytics
 pandas==2.1.3
 numpy==1.25.2
 scipy==1.11.4
 
-# Machine Learning & Computer Vision
-torch==2.1.1
-torchvision==0.16.1
+# AI/ML Libraries
 scikit-learn==1.3.2
+lightgbm==4.1.0
+torch==2.1.0
+torchvision==0.16.0
+
+# Computer Vision
 opencv-python==4.8.1.78
 pillow==10.1.0
 
 # Database & Caching
 redis==5.0.1
-sqlite3
 sqlalchemy==2.0.23
 alembic==1.12.1
 
-# Async & WebSocket Support
-asyncio
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# Web Sockets & Real-time Communication
 websockets==12.0
 aioredis==2.0.1
-aiofiles==23.2.1
 
-# HTTP & API Libraries
-requests==2.31.0
-httpx==0.25.2
-aiohttp==3.9.1
-
-# Data Validation & Serialization
-pydantic==2.5.0
-marshmallow==3.20.1
-typing-extensions==4.8.0
-
-# Utilities & Tools
-python-dotenv==1.0.0
-click==8.1.7
-rich==13.7.0
-tqdm==4.66.1
-python-multipart==0.0.6
-
-# Date/Time Handling
+# Utilities
 python-dateutil==2.8.2
 pytz==2023.3
+requests==2.31.0
+python-dotenv==1.0.0
 
-# Logging & Monitoring
-structlog==23.2.0
-prometheus-client==0.19.0
-
-# Security & Authentication
-passlib[bcrypt]==1.7.4
-python-jose[cryptography]==3.3.0
-bcrypt==4.1.2
-
-# Email & Notifications
-smtplib
-email-validator==2.1.0
-
-# Scheduling & Background Tasks
-schedule==1.2.0
-APScheduler==3.10.4
-
-# Mathematical & Scientific
-sympy==1.12
-statsmodels==0.14.0
-
-# Configuration & Environment
-configparser==6.0.0
-toml==0.10.2
-pyyaml==6.0.1
-
-# Threading & Concurrency
-concurrent-futures==3.1.1
-threading
-
-# Image Processing & QR Codes
-qrcode[pil]==7.4.2
-reportlab==4.0.7
-
-# Testing (Development)
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
-pytest-mock==3.12.0
-
-# Code Quality (Development)
-black==23.11.0
-flake8==6.1.0
-isort==5.12.0
-mypy==1.7.1
-
-# Documentation (Development)
-sphinx==7.2.6
-sphinx-rtd-theme==1.3.0
-
-# Performance & Optimization
-cython==3.0.6
-numba==0.58.1
-
-# Additional Utilities
-faker==20.1.0
-uuid
-hashlib
-base64
-json
-pickle
-gzip
-shutil
-pathlib
-collections
-itertools
-functools
-operator
-copy
-weakref
-gc
-sys
-os
-time
-datetime
-random
-math
-statistics
-re
-string
-io
-contextlib
-warnings
-traceback
-inspect
-importlib
-
-# Version Constraints for Compatibility
-setuptools>=65.0.0
-wheel>=0.42.0
-pip>=23.0.0
-
-# Optional: GPU Support (uncomment if using CUDA)
-# torch-audio==2.1.1+cu118
-# torch-text==0.16.1+cu118
+# Optional Dependencies (graceful fallback if not available)
+# These are handled with try/except imports in code
+# dash-mantine-components  # Optional UI components
+# lightgbm  # Optional ML library

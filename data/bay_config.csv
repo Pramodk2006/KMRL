@@ -1,0 +1,15 @@
+bay_id,geometry_score,max_capacity,bay_type,power_available,maintenance_equipment,cleaning_access
+Bay1,6,3,service,True,False,False
+Bay2,7,2,service,True,True,True
+Bay3,8,2,service,True,False,False
+Bay4,10,2,service,True,False,True
+Bay5,6,1,service,True,False,True
+Bay6,7,2,service,True,False,True
+Bay7,10,3,service,True,True,True
+Bay8,6,3,service,True,True,False
+Bay9,7,1,maintenance,True,True,True
+Bay10,7,1,maintenance,True,True,True
+Bay11,6,1,maintenance,True,True,True
+Bay12,4,1,storage,False,False,False
+Bay13,6,1,storage,False,False,False
+Bay14,5,2,storage,False,False,False

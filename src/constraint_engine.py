@@ -2,11 +2,29 @@ import pandas as pd
 from datetime import datetime
 from typing import Dict, List
 import numpy as np
+from .cpsat_optimizer import solve_bay_assignment_cpsat
 
 class CustomConstraintEngine:
     """Layer 1: Custom Constraint Programming Engine"""
     
-    def __init__(self, data: Dict[str, pd.DataFrame], config: dict = None):
+    def __init__(self, data: Dict[str, pd.DataFrame] = None, config: dict = None):
+        # Allow default construction by loading data internally for tests/integration
+        if data is None:
+            try:
+                from .data_loader import DataLoader
+            except ImportError:
+                from src.data_loader import DataLoader
+            loader = DataLoader()
+            data = loader.get_integrated_data()
+            # Optional yard topology for route-aware assignment
+            self._yard_graph, self._train_start_nodes, self._bay_nodes = loader.load_yard_topology()
+        else:
+            # If data was provided externally, still try to load yard topology lazily when needed
+            try:
+                from .data_loader import DataLoader as _DL
+                self._yard_graph, self._train_start_nodes, self._bay_nodes = _DL().load_yard_topology()
+            except Exception:
+                self._yard_graph, self__train_start_nodes, self__bay_nodes = {}, {}, {}
         self.data = data
         self.config = config or {}
         self.solution_found = False
@@ -46,8 +64,8 @@ class CustomConstraintEngine:
                 train_conflicts.append("Open job card - maintenance required")
             
             # Constraint 3: Cleaning Slot Availability
-            cleaning_slot = row['cleaning_slot_id']
-            if cleaning_slot == 'None':
+            cleaning_slot = row.get('cleaning_slot_id')
+            if pd.isna(cleaning_slot) or str(cleaning_slot).strip().lower() in ['none', 'nan', '']:
                 is_eligible = False
                 train_conflicts.append("No cleaning slot assigned")
             
@@ -91,6 +109,45 @@ class CustomConstraintEngine:
     def optimize_train_selection(self, eligible_trains: List[Dict]) -> Dict:
         bay_config = self.data['bay_config']
         cleaning_slots = self.data['cleaning_slots']
+        # Multi-depot partitioning: assign within each depot
+        depots = bay_config['depot_id'].unique().tolist() if 'depot_id' in bay_config.columns else [None]
+        inducted_with_bays_all = []
+        standby_all = []
+        for depot in depots:
+            depot_bays = bay_config if depot is None else bay_config[bay_config['depot_id'] == depot]
+            service_bays = depot_bays[depot_bays['bay_type'] == 'service']
+            trains_d = [t for t in eligible_trains if (depot is None) or (t.get('depot_id', depot) == depot)]
+            # Recompute capacity per depot
+            total_bay_capacity = service_bays['max_capacity'].sum()
+            total_cleaning_capacity = cleaning_slots[cleaning_slots['available_bays'] > 0]['available_bays'].sum() if not cleaning_slots.empty else total_bay_capacity
+            effective_capacity = min(total_bay_capacity, total_cleaning_capacity, len(trains_d))
+            # Score and pick top per depot
+            scored_trains = []
+            for train in trains_d:
+                score = self._calculate_priority_score(train)
+                train['priority_score'] = score
+                scored_trains.append(train)
+            scored_trains.sort(key=lambda x: x['priority_score'], reverse=True)
+            inducted_trains = scored_trains[:effective_capacity]
+            standby_trains = scored_trains[effective_capacity:]
+            # Route-aware parameters and weights (optional)
+            try:
+                from config.settings import SETTINGS
+                geom_w = float(SETTINGS.get('optimization', {}).get('geometry_weight', 1.0))
+                shunt_w = float(SETTINGS.get('optimization', {}).get('shunting_weight', 1.0))
+            except Exception:
+                geom_w, shunt_w = 1.0, 1.0
+            inducted_with_bays = solve_bay_assignment_cpsat(
+                inducted_trains,
+                service_bays,
+                yard_graph=getattr(self, '_yard_graph', {}),
+                train_start_nodes=getattr(self, '_train_start_nodes', {}),
+                bay_nodes=getattr(self, '_bay_nodes', {}),
+                shunting_weight=shunt_w,
+                geometry_weight=geom_w
+            )
+            inducted_with_bays_all.extend(inducted_with_bays)
+            standby_all.extend(standby_trains)
         
         service_bays = bay_config[bay_config['bay_type'] == 'service']
         total_bay_capacity = service_bays['max_capacity'].sum()
@@ -118,12 +175,10 @@ class CustomConstraintEngine:
         inducted_trains = scored_trains[:effective_capacity]
         standby_trains = scored_trains[effective_capacity:]
         
-        inducted_with_bays = self._assign_bays_to_trains(inducted_trains, service_bays)
-        
         return {
-            'inducted_trains': inducted_with_bays,
-            'standby_trains': standby_trains,
-            'status': 'Optimal' if len(inducted_trains) == effective_capacity else 'Feasible'
+            'inducted_trains': inducted_with_bays_all,
+            'standby_trains': standby_all,
+            'status': 'Optimal' if inducted_with_bays_all else 'Feasible'
         }
     
     def _calculate_priority_score(self, train: Dict) -> float:
@@ -211,6 +266,21 @@ class CustomConstraintEngine:
             }
             self.solution_found = False
         
+        # Degraded-service detection
+        required_trains = None
+        try:
+            from config.settings import SETTINGS
+            required_trains = int(SETTINGS.get('data', {}).get('required_trains', 0))
+        except Exception:
+            required_trains = 0
+        total_inducted = len(optimization_result['inducted_trains'])
+        degraded = required_trains > 0 and total_inducted < required_trains
+        degraded_detail = {
+            'required_trains': required_trains,
+            'inducted_trains': total_inducted,
+            'shortfall': max(0, required_trains - total_inducted)
+        }
+
         result = {
             'status': optimization_result['status'],
             'solution_found': self.solution_found,
@@ -219,9 +289,11 @@ class CustomConstraintEngine:
             'ineligible_trains': ineligible_trains,
             'inducted_trains': optimization_result['inducted_trains'],
             'standby_trains': optimization_result['standby_trains'],
-            'total_inducted': len(optimization_result['inducted_trains']),
+            'total_inducted': total_inducted,
             'total_standby': len(optimization_result['standby_trains']),
-            'total_ineligible': len(ineligible_trains)
+            'total_ineligible': len(ineligible_trains),
+            'degraded_mode': degraded,
+            'degraded_detail': degraded_detail
         }
         
         self.induction_plan = result

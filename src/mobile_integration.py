@@ -1,559 +1,531 @@
-from flask import Flask, jsonify, request, send_file
-from flask_cors import CORS
+"""
+src/mobile_integration.py
+
+Mobile API server for KMRL IntelliFleet mobile operations.
+Provides field worker interface for inspections, updates, and alerts.
+"""
+
+import asyncio
 import json
-import io
-import base64
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-import threading
-import logging
-import qrcode
-from PIL import Image
 import sqlite3
-import uuid
+from flask import Flask, request, jsonify, render_template_string
+from flask_cors import CORS
+import threading
+import time
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MobileAPIServer:
-    """Mobile API server for field operations"""
+    """Mobile API server for field operations and inspections"""
     
-    def __init__(self, digital_twin_engine, iot_system, cv_system, port: int = 5000):
-        self.digital_twin = digital_twin_engine
-        self.iot_system = iot_system
+    def __init__(self, digital_twin, iot_simulator, cv_system, port=5000):
+        self.digital_twin = digital_twin
+        self.iot_simulator = iot_simulator
         self.cv_system = cv_system
         self.port = port
         
         # Initialize Flask app
         self.app = Flask(__name__)
-        CORS(self.app)  # Enable CORS for mobile apps
+        CORS(self.app)
         
-        # Setup database for mobile operations
-        self.setup_database()
+        # Initialize mobile database
+        self._init_mobile_db()
         
-        # Setup API routes
-        self.setup_routes()
+        # Setup routes
+        self._setup_routes()
         
-        # Active field operations
-        self.active_operations = {}
+        # Mobile session tracking
+        self.active_sessions = {}
+        self.pending_tasks = {}
         
-    def setup_database(self):
-        """Setup SQLite database for mobile operations"""
-        self.db_connection = sqlite3.connect('mobile_operations.db', check_same_thread=False)
-        cursor = self.db_connection.cursor()
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS field_operations (
-                operation_id TEXT PRIMARY KEY,
-                train_id TEXT,
-                operator_id TEXT,
-                operation_type TEXT,
-                status TEXT,
-                started_at TEXT,
-                completed_at TEXT,
-                location TEXT,
-                notes TEXT,
-                photos TEXT  -- JSON array of photo data
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS mobile_users (
-                user_id TEXT PRIMARY KEY,
-                username TEXT,
-                role TEXT,
-                full_name TEXT,
-                email TEXT,
-                phone TEXT,
-                active INTEGER DEFAULT 1,
-                last_login TEXT
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS inspection_checklist (
-                checklist_id TEXT PRIMARY KEY,
-                train_id TEXT,
-                inspector_id TEXT,
-                checklist_type TEXT,
-                items TEXT,  -- JSON array of checklist items
-                completed_at TEXT,
-                overall_score INTEGER
-            )
-        ''')
-        
-        self.db_connection.commit()
-        
-        # Insert sample mobile users
-        self.create_sample_users()
-    
-    def create_sample_users(self):
-        """Create sample mobile users for demo"""
-        sample_users = [
-            {
-                'user_id': 'mobile_001',
-                'username': 'inspector1',
-                'role': 'field_inspector',
-                'full_name': 'Rajesh Kumar',
-                'email': 'rajesh.kumar@kmrl.com',
-                'phone': '+91-9876543210'
-            },
-            {
-                'user_id': 'mobile_002',
-                'username': 'technician1',
-                'role': 'maintenance_technician',
-                'full_name': 'Priya Nair',
-                'email': 'priya.nair@kmrl.com',
-                'phone': '+91-9876543211'
-            },
-            {
-                'user_id': 'mobile_003',
-                'username': 'supervisor1',
-                'role': 'maintenance_supervisor',
-                'full_name': 'Arun Menon',
-                'email': 'arun.menon@kmrl.com',
-                'phone': '+91-9876543212'
-            }
-        ]
-        
-        cursor = self.db_connection.cursor()
-        
-        for user in sample_users:
+        logger.info("Mobile API Server initialized")
+
+    def _init_mobile_db(self):
+        """Initialize mobile operations database"""
+        try:
+            conn = sqlite3.connect('mobile_operations.db')
+            cursor = conn.cursor()
+            
+            # Create tables for mobile operations
             cursor.execute('''
-                INSERT OR REPLACE INTO mobile_users 
-                (user_id, username, role, full_name, email, phone, active, last_login)
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-            ''', (
-                user['user_id'], user['username'], user['role'],
-                user['full_name'], user['email'], user['phone'],
-                datetime.now().isoformat()
-            ))
+                CREATE TABLE IF NOT EXISTS mobile_inspections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    train_id TEXT NOT NULL,
+                    inspector_id TEXT NOT NULL,
+                    inspection_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    findings TEXT,
+                    images TEXT,  -- JSON array of image paths
+                    location TEXT,
+                    timestamp TEXT NOT NULL,
+                    completed_at TEXT,
+                    priority INTEGER DEFAULT 1
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS mobile_alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    alert_type TEXT NOT NULL,
+                    train_id TEXT,
+                    message TEXT NOT NULL,
+                    severity TEXT NOT NULL,
+                    acknowledged BOOLEAN DEFAULT FALSE,
+                    created_at TEXT NOT NULL,
+                    acknowledged_at TEXT,
+                    acknowledged_by TEXT
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS mobile_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    login_time TEXT NOT NULL,
+                    last_activity TEXT NOT NULL,
+                    device_info TEXT,
+                    location TEXT
+                )
+            ''')
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info("Mobile database initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize mobile database: {e}")
+
+    def _setup_routes(self):
+        """Setup mobile API routes"""
         
-        self.db_connection.commit()
-        logger.info("✅ Sample mobile users created")
-    
-    def setup_routes(self):
-        """Setup Flask API routes for mobile app"""
+        @self.app.route('/')
+        def mobile_dashboard():
+            """Mobile dashboard for field workers"""
+            return render_template_string(self._get_mobile_dashboard_template())
         
-        @self.app.route('/mobile/health', methods=['GET'])
-        def mobile_health():
-            """Mobile API health check"""
-            return jsonify({
-                'status': 'healthy',
-                'timestamp': datetime.now().isoformat(),
-                'version': '6.0.0',
-                'services': {
-                    'digital_twin': self.digital_twin.is_running,
-                    'iot_system': self.iot_system.is_running if hasattr(self.iot_system, 'is_running') else True,
-                    'computer_vision': True
-                }
-            })
-        
-        @self.app.route('/mobile/auth/login', methods=['POST'])
+        @self.app.route('/api/mobile/login', methods=['POST'])
         def mobile_login():
             """Mobile user authentication"""
-            data = request.json
-            username = data.get('username')
-            password = data.get('password')  # In production, verify against secure hash
+            data = request.get_json()
+            user_id = data.get('user_id')
+            password = data.get('password')
+            device_info = data.get('device_info', {})
+            location = data.get('location', 'Unknown')
             
-            cursor = self.db_connection.cursor()
-            cursor.execute('''
-                SELECT user_id, role, full_name, email, phone 
-                FROM mobile_users 
-                WHERE username = ? AND active = 1
-            ''', (username,))
-            
-            user = cursor.fetchone()
-            
-            if user and password == 'kmrl2025':  # Simple demo authentication
-                # Update last login
-                cursor.execute('''
-                    UPDATE mobile_users SET last_login = ? WHERE user_id = ?
-                ''', (datetime.now().isoformat(), user[0]))
-                self.db_connection.commit()
+            # Simple authentication (in production, use proper auth)
+            if user_id and password:
+                session_id = f"mobile_{user_id}_{int(time.time())}"
+                
+                # Store session
+                self.active_sessions[session_id] = {
+                    'user_id': user_id,
+                    'role': 'field_inspector',  # Could be determined from user_id
+                    'login_time': datetime.now().isoformat(),
+                    'last_activity': datetime.now().isoformat(),
+                    'device_info': device_info,
+                    'location': location
+                }
+                
+                # Store in database
+                try:
+                    conn = sqlite3.connect('mobile_operations.db')
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        INSERT INTO mobile_sessions 
+                        (session_id, user_id, role, login_time, last_activity, device_info, location)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (session_id, user_id, 'field_inspector', 
+                          datetime.now().isoformat(), datetime.now().isoformat(),
+                          json.dumps(device_info), location))
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"Failed to store session: {e}")
                 
                 return jsonify({
                     'success': True,
-                    'user': {
-                        'user_id': user[0],
-                        'role': user[1],
-                        'full_name': user[2],
-                        'email': user[3],
-                        'phone': user[4]
-                    },
-                    'token': f"mobile_token_{user[0]}_{int(datetime.now().timestamp())}"
-                })
-            else:
-                return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
-        
-        @self.app.route('/mobile/trains', methods=['GET'])
-        def get_mobile_trains():
-            """Get train list for mobile app"""
-            trains_data = []
-            
-            current_state = self.digital_twin.get_current_state()
-            trains = current_state.get('trains', {})
-            
-            for train_id, train_info in trains.items():
-                # Get latest IoT data
-                latest_readings = self.iot_system.get_latest_readings(train_id=train_id, limit=5)
-                
-                # Calculate health score
-                health_score = 85.0  # Default
-                if latest_readings:
-                    processor = IoTDataProcessor()
-                    health_score = processor.calculate_train_health_score(train_id, latest_readings) * 100
-                
-                trains_data.append({
-                    'train_id': train_id,
-                    'status': train_info.get('status', 'unknown'),
-                    'location': train_info.get('location', 'depot'),
-                    'health_score': round(health_score, 1),
-                    'last_maintenance': train_info.get('last_maintenance', '2025-08-15'),
-                    'mileage_km': train_info.get('mileage_km', 0),
-                    'alerts_count': len([r for r in latest_readings if r.alert_level != 'normal'])
-                })
-            
-            return jsonify({
-                'success': True,
-                'trains': trains_data,
-                'total_count': len(trains_data)
-            })
-        
-        @self.app.route('/mobile/train/<train_id>/details', methods=['GET'])
-        def get_train_details(train_id):
-            """Get detailed train information for mobile app"""
-            try:
-                # Get train state
-                current_state = self.digital_twin.get_current_state()
-                train_info = current_state.get('trains', {}).get(train_id, {})
-                
-                if not train_info:
-                    return jsonify({'success': False, 'message': 'Train not found'}), 404
-                
-                # Get IoT sensor data
-                latest_readings = self.iot_system.get_latest_readings(train_id=train_id, limit=20)
-                sensor_data = {}
-                
-                for reading in latest_readings:
-                    if reading.sensor_type not in sensor_data:
-                        sensor_data[reading.sensor_type] = []
-                    sensor_data[reading.sensor_type].append({
-                        'value': reading.value,
-                        'unit': reading.unit,
-                        'timestamp': reading.timestamp.isoformat(),
-                        'alert_level': reading.alert_level
-                    })
-                
-                # Get recent inspection results
-                inspection_history = self.cv_system.get_inspection_history(train_id=train_id, days=7)
-                
-                return jsonify({
-                    'success': True,
-                    'train_details': {
-                        'train_id': train_id,
-                        'basic_info': train_info,
-                        'sensor_data': sensor_data,
-                        'recent_inspections': len(inspection_history),
-                        'last_inspection': inspection_history[0].timestamp.isoformat() if inspection_history else None
+                    'session_id': session_id,
+                    'user_info': {
+                        'user_id': user_id,
+                        'role': 'field_inspector',
+                        'permissions': ['inspect', 'alert', 'update_status']
                     }
                 })
-                
-            except Exception as e:
-                logger.error(f"Error getting train details: {e}")
-                return jsonify({'success': False, 'message': str(e)}), 500
+            
+            return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
         
-        @self.app.route('/mobile/inspection/start', methods=['POST'])
-        def start_inspection():
-            """Start mobile inspection operation"""
-            data = request.json
-            train_id = data.get('train_id')
-            inspector_id = data.get('inspector_id')
-            inspection_type = data.get('inspection_type', 'routine')
+        @self.app.route('/api/mobile/trains', methods=['GET'])
+        def get_mobile_train_list():
+            """Get train list for mobile inspection"""
+            session_id = request.headers.get('Session-ID')
+            if not self._validate_session(session_id):
+                return jsonify({'error': 'Invalid session'}), 401
             
-            if not train_id or not inspector_id:
-                return jsonify({'success': False, 'message': 'Missing required fields'}), 400
-            
-            operation_id = str(uuid.uuid4())
-            
-            cursor = self.db_connection.cursor()
-            cursor.execute('''
-                INSERT INTO field_operations 
-                (operation_id, train_id, operator_id, operation_type, status, started_at, location)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                operation_id, train_id, inspector_id, f'inspection_{inspection_type}',
-                'in_progress', datetime.now().isoformat(), 'depot'
-            ))
-            self.db_connection.commit()
-            
-            self.active_operations[operation_id] = {
-                'train_id': train_id,
-                'inspector_id': inspector_id,
-                'type': inspection_type,
-                'started_at': datetime.now()
-            }
-            
-            return jsonify({
-                'success': True,
-                'operation_id': operation_id,
-                'message': f'Inspection started for train {train_id}'
-            })
-        
-        @self.app.route('/mobile/inspection/<operation_id>/checklist', methods=['GET'])
-        def get_inspection_checklist(operation_id):
-            """Get inspection checklist for mobile app"""
-            if operation_id not in self.active_operations:
-                return jsonify({'success': False, 'message': 'Operation not found'}), 404
-            
-            # Generate dynamic checklist based on train type and inspection type
-            checklist_items = [
-                {'id': 1, 'category': 'Exterior', 'item': 'Check body condition for dents/scratches', 'status': 'pending'},
-                {'id': 2, 'category': 'Exterior', 'item': 'Inspect door mechanisms', 'status': 'pending'},
-                {'id': 3, 'category': 'Exterior', 'item': 'Check window condition', 'status': 'pending'},
-                {'id': 4, 'category': 'Wheels', 'item': 'Inspect wheel condition and wear', 'status': 'pending'},
-                {'id': 5, 'category': 'Wheels', 'item': 'Check brake disc condition', 'status': 'pending'},
-                {'id': 6, 'category': 'Electrical', 'item': 'Test pantograph operation', 'status': 'pending'},
-                {'id': 7, 'category': 'Electrical', 'item': 'Check electrical connections', 'status': 'pending'},
-                {'id': 8, 'category': 'Interior', 'item': 'Inspect seats and interior fittings', 'status': 'pending'},
-                {'id': 9, 'category': 'Safety', 'item': 'Test emergency systems', 'status': 'pending'},
-                {'id': 10, 'category': 'Safety', 'item': 'Check fire extinguisher', 'status': 'pending'}
-            ]
-            
-            return jsonify({
-                'success': True,
-                'checklist': {
-                    'operation_id': operation_id,
-                    'train_id': self.active_operations[operation_id]['train_id'],
-                    'total_items': len(checklist_items),
-                    'completed_items': 0,
-                    'items': checklist_items
-                }
-            })
-        
-        @self.app.route('/mobile/inspection/<operation_id>/complete', methods=['POST'])
-        def complete_inspection(operation_id):
-            """Complete mobile inspection with results"""
-            if operation_id not in self.active_operations:
-                return jsonify({'success': False, 'message': 'Operation not found'}), 404
-            
-            data = request.json
-            checklist_results = data.get('checklist_results', [])
-            notes = data.get('notes', '')
-            photos = data.get('photos', [])
-            
-            # Calculate overall score
-            total_items = len(checklist_results)
-            passed_items = len([item for item in checklist_results if item.get('status') == 'passed'])
-            overall_score = int((passed_items / total_items) * 100) if total_items > 0 else 0
-            
-            # Update database
-            cursor = self.db_connection.cursor()
-            cursor.execute('''
-                UPDATE field_operations 
-                SET status = ?, completed_at = ?, notes = ?, photos = ?
-                WHERE operation_id = ?
-            ''', (
-                'completed', datetime.now().isoformat(), notes,
-                json.dumps(photos), operation_id
-            ))
-            
-            # Store checklist results
-            cursor.execute('''
-                INSERT INTO inspection_checklist 
-                (checklist_id, train_id, inspector_id, checklist_type, items, completed_at, overall_score)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                f"checklist_{operation_id}", 
-                self.active_operations[operation_id]['train_id'],
-                self.active_operations[operation_id]['inspector_id'],
-                'mobile_inspection',
-                json.dumps(checklist_results),
-                datetime.now().isoformat(),
-                overall_score
-            ))
-            
-            self.db_connection.commit()
-            
-            # Remove from active operations
-            del self.active_operations[operation_id]
-            
-            return jsonify({
-                'success': True,
-                'message': 'Inspection completed successfully',
-                'overall_score': overall_score,
-                'summary': {
-                    'total_items': total_items,
-                    'passed_items': passed_items,
-                    'failed_items': total_items - passed_items
-                }
-            })
-        
-        @self.app.route('/mobile/qr/<train_id>', methods=['GET'])
-        def generate_train_qr(train_id):
-            """Generate QR code for train identification"""
             try:
-                # Create QR code data
-                qr_data = {
-                    'train_id': train_id,
-                    'type': 'kmrl_train',
-                    'generated_at': datetime.now().isoformat(),
-                    'api_endpoint': f'/mobile/train/{train_id}/details'
-                }
+                # Get current train state from digital twin
+                state = self.digital_twin.get_current_state()
+                trains = state.get('trains', {})
                 
-                # Generate QR code
-                qr = qrcode.QRCode(
-                    version=1,
-                    error_correction=qrcode.constants.ERROR_CORRECT_L,
-                    box_size=10,
-                    border=4,
-                )
-                qr.add_data(json.dumps(qr_data))
-                qr.make(fit=True)
-                
-                # Create image
-                qr_img = qr.make_image(fill_color="black", back_color="white")
-                
-                # Convert to bytes
-                img_io = io.BytesIO()
-                qr_img.save(img_io, 'PNG')
-                img_io.seek(0)
-                
-                return send_file(img_io, mimetype='image/png')
-                
-            except Exception as e:
-                logger.error(f"Error generating QR code: {e}")
-                return jsonify({'success': False, 'message': str(e)}), 500
-        
-        @self.app.route('/mobile/alerts', methods=['GET'])
-        def get_mobile_alerts():
-            """Get alerts for mobile app"""
-            try:
-                # Get IoT alerts
-                iot_alerts = self.iot_system.get_alerts()
-                
-                mobile_alerts = []
-                for alert in iot_alerts:
-                    mobile_alerts.append({
-                        'alert_id': f"iot_{alert.sensor_id}_{int(alert.timestamp.timestamp())}",
-                        'type': 'sensor_alert',
-                        'train_id': alert.train_id,
-                        'severity': alert.alert_level,
-                        'message': f"{alert.sensor_type.title()} alert: {alert.value}{alert.unit}",
-                        'timestamp': alert.timestamp.isoformat(),
-                        'location': alert.location
+                mobile_trains = []
+                for train_id, train_data in trains.items():
+                    # Get IoT data if available
+                    iot_data = {}
+                    if hasattr(self.iot_simulator, 'get_train_readings'):
+                        iot_data = self.iot_simulator.get_train_readings(train_id)
+                    
+                    mobile_trains.append({
+                        'train_id': train_id,
+                        'status': train_data.get('status', 'unknown'),
+                        'location': train_data.get('location', 'unknown'),
+                        'mileage_km': train_data.get('mileage_km', 0),
+                        'fitness_valid_until': train_data.get('fitness_valid_until', ''),
+                        'priority_score': train_data.get('priority_score', 0),
+                        'bay_assignment': train_data.get('bay_assignment', 'N/A'),
+                        'last_inspection': self._get_last_inspection(train_id),
+                        'iot_status': iot_data.get('health_score', 100),
+                        'alerts_count': self._get_active_alerts_count(train_id)
                     })
-                
-                # Sort by timestamp (newest first)
-                mobile_alerts.sort(key=lambda x: x['timestamp'], reverse=True)
                 
                 return jsonify({
                     'success': True,
-                    'alerts': mobile_alerts[:20],  # Limit to 20 most recent
-                    'total_count': len(mobile_alerts)
+                    'trains': mobile_trains,
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+            except Exception as e:
+                logger.error(f"Error getting mobile train list: {e}")
+                return jsonify({'error': 'Failed to get train list'}), 500
+        
+        @self.app.route('/api/mobile/train/<train_id>/inspect', methods=['POST'])
+        def start_mobile_inspection(train_id):
+            """Start mobile inspection for a train"""
+            session_id = request.headers.get('Session-ID')
+            if not self._validate_session(session_id):
+                return jsonify({'error': 'Invalid session'}), 401
+            
+            data = request.get_json()
+            inspection_type = data.get('inspection_type', 'general')
+            location = data.get('location', 'depot')
+            
+            session = self.active_sessions.get(session_id)
+            inspector_id = session['user_id']
+            
+            try:
+                conn = sqlite3.connect('mobile_operations.db')
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO mobile_inspections 
+                    (train_id, inspector_id, inspection_type, status, location, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (train_id, inspector_id, inspection_type, 'in_progress', 
+                      location, datetime.now().isoformat()))
+                
+                inspection_id = cursor.lastrowid
+                conn.commit()
+                conn.close()
+                
+                # Trigger CV system if visual inspection
+                cv_results = {}
+                if inspection_type in ['visual', 'exterior', 'interior']:
+                    try:
+                        cv_results = self.cv_system.inspect_train(train_id)
+                    except Exception as e:
+                        logger.warning(f"CV inspection failed: {e}")
+                        cv_results = {'status': 'cv_unavailable'}
+                
+                return jsonify({
+                    'success': True,
+                    'inspection_id': inspection_id,
+                    'train_id': train_id,
+                    'inspector_id': inspector_id,
+                    'cv_results': cv_results,
+                    'started_at': datetime.now().isoformat()
+                })
+                
+            except Exception as e:
+                logger.error(f"Error starting inspection: {e}")
+                return jsonify({'error': 'Failed to start inspection'}), 500
+        
+        @self.app.route('/api/mobile/inspection/<int:inspection_id>/complete', methods=['POST'])
+        def complete_mobile_inspection(inspection_id):
+            """Complete mobile inspection"""
+            session_id = request.headers.get('Session-ID')
+            if not self._validate_session(session_id):
+                return jsonify({'error': 'Invalid session'}), 401
+            
+            data = request.get_json()
+            findings = data.get('findings', '')
+            images = data.get('images', [])  # Base64 encoded images
+            status = data.get('status', 'completed')
+            
+            try:
+                # Store images (in production, save to file system or cloud)
+                image_paths = []
+                for idx, image_data in enumerate(images):
+                    # Here you would save the image and store the path
+                    image_path = f"inspection_{inspection_id}_{idx}.jpg"
+                    image_paths.append(image_path)
+                
+                conn = sqlite3.connect('mobile_operations.db')
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE mobile_inspections 
+                    SET status = ?, findings = ?, images = ?, completed_at = ?
+                    WHERE id = ?
+                ''', (status, findings, json.dumps(image_paths), 
+                      datetime.now().isoformat(), inspection_id))
+                conn.commit()
+                conn.close()
+                
+                # Create alert if issues found
+                if 'issue' in findings.lower() or 'problem' in findings.lower():
+                    self._create_mobile_alert(
+                        alert_type='inspection_issue',
+                        message=f"Inspection {inspection_id} found issues: {findings[:100]}",
+                        severity='medium',
+                        train_id=self._get_inspection_train_id(inspection_id)
+                    )
+                
+                return jsonify({
+                    'success': True,
+                    'inspection_id': inspection_id,
+                    'status': status,
+                    'completed_at': datetime.now().isoformat()
+                })
+                
+            except Exception as e:
+                logger.error(f"Error completing inspection: {e}")
+                return jsonify({'error': 'Failed to complete inspection'}), 500
+        
+        @self.app.route('/api/mobile/alerts', methods=['GET'])
+        def get_mobile_alerts():
+            """Get mobile alerts for field workers"""
+            session_id = request.headers.get('Session-ID')
+            if not self._validate_session(session_id):
+                return jsonify({'error': 'Invalid session'}), 401
+            
+            try:
+                conn = sqlite3.connect('mobile_operations.db')
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, alert_type, train_id, message, severity, 
+                           acknowledged, created_at, acknowledged_at, acknowledged_by
+                    FROM mobile_alerts 
+                    WHERE acknowledged = FALSE 
+                    ORDER BY created_at DESC 
+                    LIMIT 50
+                ''')
+                
+                alerts = []
+                for row in cursor.fetchall():
+                    alerts.append({
+                        'id': row[0],
+                        'alert_type': row[1],
+                        'train_id': row[2],
+                        'message': row[3],
+                        'severity': row[4],
+                        'acknowledged': bool(row[5]),
+                        'created_at': row[6],
+                        'acknowledged_at': row[7],
+                        'acknowledged_by': row[8]
+                    })
+                
+                conn.close()
+                
+                return jsonify({
+                    'success': True,
+                    'alerts': alerts,
+                    'count': len(alerts)
                 })
                 
             except Exception as e:
                 logger.error(f"Error getting mobile alerts: {e}")
-                return jsonify({'success': False, 'message': str(e)}), 500
+                return jsonify({'error': 'Failed to get alerts'}), 500
         
-        @self.app.route('/mobile/reports/daily', methods=['GET'])
-        def get_daily_mobile_report():
-            """Get daily summary report for mobile app"""
+        @self.app.route('/api/mobile/alert/<int:alert_id>/acknowledge', methods=['POST'])
+        def acknowledge_mobile_alert(alert_id):
+            """Acknowledge mobile alert"""
+            session_id = request.headers.get('Session-ID')
+            if not self._validate_session(session_id):
+                return jsonify({'error': 'Invalid session'}), 401
+            
+            session = self.active_sessions.get(session_id)
+            user_id = session['user_id']
+            
             try:
-                today = datetime.now().date()
-                
-                # Get today's operations from database
-                cursor = self.db_connection.cursor()
+                conn = sqlite3.connect('mobile_operations.db')
+                cursor = conn.cursor()
                 cursor.execute('''
-                    SELECT operation_type, status, COUNT(*) as count
-                    FROM field_operations
-                    WHERE DATE(started_at) = ?
-                    GROUP BY operation_type, status
-                ''', (today.isoformat(),))
-                
-                operations_summary = cursor.fetchall()
-                
-                # Get today's inspections
-                cursor.execute('''
-                    SELECT AVG(overall_score) as avg_score, COUNT(*) as total_inspections
-                    FROM inspection_checklist
-                    WHERE DATE(completed_at) = ?
-                ''', (today.isoformat(),))
-                
-                inspection_summary = cursor.fetchone()
-                
-                # Get train status from digital twin
-                current_state = self.digital_twin.get_current_state()
-                summary = current_state.get('summary', {})
-                
-                daily_report = {
-                    'date': today.isoformat(),
-                    'train_operations': {
-                        'total_trains': summary.get('total_trains', 0),
-                        'inducted_trains': summary.get('inducted_trains', 0),
-                        'available_bays': summary.get('available_bays', 0),
-                        'bay_utilization': summary.get('bay_utilization', 0)
-                    },
-                    'field_operations': {
-                        'operations_summary': [
-                            {'type': op[0], 'status': op[1], 'count': op[2]}
-                            for op in operations_summary
-                        ],
-                        'total_operations': sum([op[2] for op in operations_summary])
-                    },
-                    'inspections': {
-                        'total_inspections': inspection_summary[1] if inspection_summary[1] else 0,
-                        'average_score': round(inspection_summary[0], 1) if inspection_summary[0] else 0
-                    },
-                    'alerts': {
-                        'active_alerts': len(self.iot_system.get_alerts())
-                    }
-                }
+                    UPDATE mobile_alerts 
+                    SET acknowledged = TRUE, acknowledged_at = ?, acknowledged_by = ?
+                    WHERE id = ?
+                ''', (datetime.now().isoformat(), user_id, alert_id))
+                conn.commit()
+                conn.close()
                 
                 return jsonify({
                     'success': True,
-                    'daily_report': daily_report
+                    'alert_id': alert_id,
+                    'acknowledged_by': user_id,
+                    'acknowledged_at': datetime.now().isoformat()
                 })
                 
             except Exception as e:
-                logger.error(f"Error generating daily mobile report: {e}")
-                return jsonify({'success': False, 'message': str(e)}), 500
-    
-    def start_server(self):
-        """Start mobile API server"""
-        logger.info(f"📱 Starting Mobile API Server on port {self.port}")
-        
-        # Run Flask server in a separate thread
-        server_thread = threading.Thread(
-            target=lambda: self.app.run(
-                host='0.0.0.0', 
-                port=self.port, 
-                debug=False,
-                threaded=True
-            ),
-            daemon=True
-        )
-        server_thread.start()
-        
-        logger.info(f"📱 Mobile API Server running at http://localhost:{self.port}")
-        logger.info("🔗 API endpoints available:")
-        logger.info("   - GET /mobile/health")
-        logger.info("   - POST /mobile/auth/login")
-        logger.info("   - GET /mobile/trains")
-        logger.info("   - GET /mobile/train/<train_id>/details")
-        logger.info("   - GET /mobile/qr/<train_id>")
-        logger.info("   - GET /mobile/alerts")
-        logger.info("   - GET /mobile/reports/daily")
-        
-        return server_thread
+                logger.error(f"Error acknowledging alert: {e}")
+                return jsonify({'error': 'Failed to acknowledge alert'}), 500
 
-# Import required from other modules
-try:
-    from .iot_sensor_system import IoTDataProcessor
-except ImportError:
-    # Fallback if module not available
-    class IoTDataProcessor:
-        def calculate_train_health_score(self, train_id, readings):
-            return 0.85
+    def _validate_session(self, session_id):
+        """Validate mobile session"""
+        if not session_id or session_id not in self.active_sessions:
+            return False
+        
+        session = self.active_sessions[session_id]
+        
+        # Check if session is still active (24 hour timeout)
+        login_time = datetime.fromisoformat(session['login_time'])
+        if datetime.now() - login_time > timedelta(hours=24):
+            del self.active_sessions[session_id]
+            return False
+        
+        # Update last activity
+        session['last_activity'] = datetime.now().isoformat()
+        return True
+
+    def _get_last_inspection(self, train_id):
+        """Get last inspection date for train"""
+        try:
+            conn = sqlite3.connect('mobile_operations.db')
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT completed_at FROM mobile_inspections 
+                WHERE train_id = ? AND status = 'completed' 
+                ORDER BY completed_at DESC LIMIT 1
+            ''', (train_id,))
+            result = cursor.fetchone()
+            conn.close()
+            return result[0] if result else 'Never'
+        except:
+            return 'Unknown'
+
+    def _get_active_alerts_count(self, train_id):
+        """Get count of active alerts for train"""
+        try:
+            conn = sqlite3.connect('mobile_operations.db')
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) FROM mobile_alerts 
+                WHERE train_id = ? AND acknowledged = FALSE
+            ''', (train_id,))
+            result = cursor.fetchone()
+            conn.close()
+            return result[0] if result else 0
+        except:
+            return 0
+
+    def _create_mobile_alert(self, alert_type, message, severity, train_id=None):
+        """Create mobile alert"""
+        try:
+            conn = sqlite3.connect('mobile_operations.db')
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO mobile_alerts 
+                (alert_type, train_id, message, severity, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (alert_type, train_id, message, severity, datetime.now().isoformat()))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Failed to create mobile alert: {e}")
+
+    def _get_inspection_train_id(self, inspection_id):
+        """Get train ID for inspection"""
+        try:
+            conn = sqlite3.connect('mobile_operations.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT train_id FROM mobile_inspections WHERE id = ?', (inspection_id,))
+            result = cursor.fetchone()
+            conn.close()
+            return result[0] if result else None
+        except:
+            return None
+
+    def _get_mobile_dashboard_template(self):
+        """Simple mobile dashboard HTML template"""
+        return '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>KMRL Mobile Operations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 400px; margin: 0 auto; }
+        .header { background: #2196F3; color: white; padding: 15px; text-align: center; border-radius: 8px; }
+        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .status { padding: 5px 10px; border-radius: 4px; font-size: 12px; }
+        .status.ready { background: #4CAF50; color: white; }
+        .status.maintenance { background: #FF9800; color: white; }
+        .status.ineligible { background: #F44336; color: white; }
+        .btn { background: #2196F3; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        .alert { background: #ffebcd; border-left: 4px solid #ff9800; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>KMRL Mobile Operations</h2>
+        </div>
+        <div class="card">
+            <h3>Field Inspector Dashboard</h3>
+            <p>Mobile API server running on port 5000</p>
+            <div class="alert">
+                <strong>API Endpoints:</strong><br>
+                • POST /api/mobile/login<br>
+                • GET /api/mobile/trains<br>
+                • POST /api/mobile/train/&lt;id&gt;/inspect<br>
+                • GET /api/mobile/alerts
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+        '''
+
+    def start_server(self):
+        """Start the mobile API server"""
+        try:
+            logger.info(f"Starting Mobile API server on port {self.port}")
+            self.app.run(host='0.0.0.0', port=self.port, debug=False, threaded=True)
+        except Exception as e:
+            logger.error(f"Failed to start mobile server: {e}")
+
+    def create_sample_alerts(self):
+        """Create sample alerts for testing"""
+        sample_alerts = [
+            {
+                'alert_type': 'maintenance_due',
+                'train_id': 'KMRL_001',
+                'message': 'Preventive maintenance due in 2 days',
+                'severity': 'medium'
+            },
+            {
+                'alert_type': 'inspection_overdue', 
+                'train_id': 'KMRL_002',
+                'message': 'Visual inspection overdue by 3 days',
+                'severity': 'high'
+            },
+            {
+                'alert_type': 'iot_anomaly',
+                'train_id': 'KMRL_003', 
+                'message': 'Temperature sensor reading anomaly detected',
+                'severity': 'low'
+            }
+        ]
+        
+        for alert in sample_alerts:
+            self._create_mobile_alert(**alert)

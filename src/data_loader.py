@@ -2,9 +2,11 @@ import pandas as pd
 import json
 import os
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Tuple
 import warnings
 warnings.filterwarnings('ignore')
+from .db import init_db, fetch_df, bootstrap_from_csv_if_empty
+from .db import upsert_heartbeat
 
 class DataLoader:
     """Layer 0: Real-Time Data Integration Engine"""
@@ -14,6 +16,7 @@ class DataLoader:
         self.data_sources = {}
         self.validation_errors = []
         self.data_quality_score = 0.0
+        self.use_db = os.environ.get('KMRL_USE_DB', '0') == '1'
         
     def _load_config(self, config_path: str) -> dict:
         try:
@@ -25,7 +28,10 @@ class DataLoader:
     
     def load_trains_data(self, file_path: str = None) -> pd.DataFrame:
         if file_path is None:
-            file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'trains.csv')
+            base_dir = getattr(self, 'DATA_PATH', getattr(DataLoader, 'DATA_PATH', None))
+            if base_dir is None:
+                base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+            file_path = os.path.join(base_dir, 'trains.csv')
         try:
             df = pd.read_csv(file_path)
             self.data_sources['trains'] = df
@@ -60,7 +66,10 @@ class DataLoader:
     
     def load_job_cards_data(self, file_path: str = None) -> pd.DataFrame:
         if file_path is None:
-            file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'job_cards.csv')
+            base_dir = getattr(self, 'DATA_PATH', getattr(DataLoader, 'DATA_PATH', None))
+            if base_dir is None:
+                base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+            file_path = os.path.join(base_dir, 'job_cards.csv')
         try:
             df = pd.read_csv(file_path)
             self.data_sources['job_cards'] = df
@@ -80,7 +89,10 @@ class DataLoader:
     
     def load_cleaning_slots_data(self, file_path: str = None) -> pd.DataFrame:
         if file_path is None:
-            file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'cleaning_slots.csv')
+            base_dir = getattr(self, 'DATA_PATH', getattr(DataLoader, 'DATA_PATH', None))
+            if base_dir is None:
+                base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+            file_path = os.path.join(base_dir, 'cleaning_slots.csv')
         try:
             df = pd.read_csv(file_path)
             self.data_sources['cleaning_slots'] = df
@@ -95,7 +107,10 @@ class DataLoader:
     
     def load_bay_config_data(self, file_path: str = None) -> pd.DataFrame:
         if file_path is None:
-            file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'bay_config.csv')
+            base_dir = getattr(self, 'DATA_PATH', getattr(DataLoader, 'DATA_PATH', None))
+            if base_dir is None:
+                base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+            file_path = os.path.join(base_dir, 'bay_config.csv')
         try:
             df = pd.read_csv(file_path)
             self.data_sources['bay_config'] = df
@@ -111,10 +126,26 @@ class DataLoader:
     def get_integrated_data(self) -> Dict[str, pd.DataFrame]:
         print("🔄 Loading all data sources...")
         
-        trains_df = self.load_trains_data()
-        job_cards_df = self.load_job_cards_data()
-        cleaning_slots_df = self.load_cleaning_slots_data()
-        bay_config_df = self.load_bay_config_data()
+        if self.use_db:
+            # Ensure DB initialized and optionally bootstrap from CSVs
+            init_db()
+            base_dir = getattr(self, 'DATA_PATH', getattr(DataLoader, 'DATA_PATH', None))
+            if base_dir:
+                bootstrap_from_csv_if_empty({
+                    'trains': os.path.join(base_dir, 'trains.csv'),
+                    'job_cards': os.path.join(base_dir, 'job_cards.csv'),
+                    'cleaning_slots': os.path.join(base_dir, 'cleaning_slots.csv'),
+                    'bay_config': os.path.join(base_dir, 'bay_config.csv')
+                })
+            trains_df = fetch_df('trains')
+            job_cards_df = fetch_df('job_cards')
+            cleaning_slots_df = fetch_df('cleaning_slots')
+            bay_config_df = fetch_df('bay_config')
+        else:
+            trains_df = self.load_trains_data()
+            job_cards_df = self.load_job_cards_data()
+            cleaning_slots_df = self.load_cleaning_slots_data()
+            bay_config_df = self.load_bay_config_data()
         
         total_sources = 4
         loaded_sources = sum([1 for df in [trains_df, job_cards_df, cleaning_slots_df, bay_config_df] 
@@ -131,9 +162,56 @@ class DataLoader:
             for error in self.validation_errors:
                 print(f"   - {error}")
         
-        return {
-            'trains': trains_df,
+        result = {
+            'trains': self._ensure_depot(trains_df, default='DepotA'),
             'job_cards': job_cards_df,
             'cleaning_slots': cleaning_slots_df,
-            'bay_config': bay_config_df
+            'bay_config': self._ensure_depot(bay_config_df, default='DepotA')
         }
+        # Heartbeats: fitness and data sources basic signals
+        try:
+            upsert_heartbeat('fitness_db', 'ok' if not trains_df.empty else 'stale', f"trains={len(trains_df)}")
+            upsert_heartbeat('cleaning_slots', 'ok' if not cleaning_slots_df.empty else 'stale', f"slots={len(cleaning_slots_df)}")
+            upsert_heartbeat('bay_config', 'ok' if not bay_config_df.empty else 'stale', f"bays={len(bay_config_df)}")
+        except Exception:
+            pass
+        return result
+
+    def load_yard_topology(self) -> Tuple[dict, dict, dict]:
+        """Load yard graph and node maps if configured.
+
+        Returns (yard_graph, train_start_nodes, bay_nodes). Any may be empty dicts if not configured.
+        """
+        # Determine path from env or settings
+        path = os.environ.get('KMRL_YARD_TOPOLOGY')
+        if not path:
+            try:
+                from config.settings import SETTINGS
+                path = SETTINGS.get('data', {}).get('yard_topology_path')
+            except Exception:
+                path = None
+        if not path:
+            return {}, {}, {}
+        try:
+            with open(path, 'r') as f:
+                topo = json.load(f)
+            yard_graph = topo.get('yard_graph', {})
+            train_start_nodes = topo.get('train_start_nodes', {})
+            bay_nodes = topo.get('bay_nodes', {})
+            return yard_graph, train_start_nodes, bay_nodes
+        except Exception:
+            return {}, {}, {}
+
+    def _ensure_depot(self, df: pd.DataFrame, default: str = 'DepotA') -> pd.DataFrame:
+        try:
+            if df is None or df.empty:
+                return df
+            if 'depot_id' not in df.columns:
+                # Add default depot for multi-depot readiness
+                df = df.copy()
+                df['depot_id'] = default
+            else:
+                df['depot_id'] = df['depot_id'].fillna(default).astype(str)
+            return df
+        except Exception:
+            return df

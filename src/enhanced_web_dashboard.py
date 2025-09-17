@@ -11,6 +11,8 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import os
+import requests
 
 # Import required libraries for Material Design
 try:
@@ -87,6 +89,14 @@ class InteractiveWebDashboard:
             html.Div([
                 html.H3("🎮 Simulation Control", className="control-title"),
                 html.Div([
+                    html.Div([
+                        html.Label("Depot", style={'color': '#666', 'marginBottom': '0.5rem'}),
+                        dcc.Dropdown(id="depot-filter", options=[
+                            {'label': 'All Depots', 'value': ''},
+                            {'label': 'DepotA', 'value': 'DepotA'},
+                            {'label': 'DepotB', 'value': 'DepotB'}
+                        ], value='')
+                    ], className="col-md-3"),
                     html.Button("▶️ Start", id="start-btn", className="modern-btn btn-success", n_clicks=0),
                     html.Button("⏸️ Pause", id="pause-btn", className="modern-btn btn-warning", n_clicks=0),
                     html.Button("⏹️ Stop", id="stop-btn", className="modern-btn btn-danger", n_clicks=0),
@@ -100,6 +110,8 @@ class InteractiveWebDashboard:
             
             # Status Cards - DYNAMIC ONLY
             html.Div(id="status-cards", className="row"),
+            # Warnings Banner
+            html.Div(id="warnings-banner", style={'marginTop': '10px'}),
             
             # Charts Row 1
             html.Div([
@@ -172,6 +184,81 @@ class InteractiveWebDashboard:
                 ], className="row"),
                 html.Div(id="scenario-results", style={'marginTop': '1.5rem'})
             ], className="scenario-panel"),
+
+            # Approve & Lock Panel
+            html.Div([
+                html.H3("🔒 Approve & Lock Final Plan", style={'color': '#1976d2', 'marginBottom': '1.0rem', 'fontSize': '1.5rem'}),
+                html.Div([
+                    html.Label("Plan ID", style={'color': '#666', 'marginBottom': '0.5rem'}),
+                    dcc.Input(id="lock-plan-id", type="text", value="", placeholder="Approved Plan ID",
+                              style={'width': '300px', 'padding': '0.6rem', 'border': '2px solid rgba(0,0,0,0.1)', 'borderRadius': '12px', 'marginRight': '0.5rem'}),
+                    dcc.Input(id="lock-depot-id", type="text", value="", placeholder="Depot (optional)",
+                              style={'width': '220px', 'padding': '0.6rem', 'border': '2px solid rgba(0,0,0,0.1)', 'borderRadius': '12px', 'marginRight': '0.5rem'}),
+                    html.Button("🔐 Lock Plan", id="lock-plan-btn", className="modern-btn btn-danger", n_clicks=0)
+                ]),
+                html.Div(id="lock-status", style={'marginTop': '0.75rem'})
+            ], className="approvals-panel"),
+
+            # Supervisor Approvals Panel
+            html.Div([
+                html.H3("🛡️ Supervisor Approvals", style={'color': '#1976d2', 'marginBottom': '1.0rem', 'fontSize': '1.5rem'}),
+                html.Div([
+                    html.Div([
+                        html.Button("📤 Submit Current Plan for Approval", id="submit-approval-btn", className="modern-btn btn-primary", n_clicks=0,
+                                   style={'width': '100%'}),
+                        html.Div(id="approval-submit-status", style={'marginTop': '0.75rem'})
+                    ], className="col-md-4"),
+                    html.Div([
+                        html.Label("Plan ID", style={'color': '#666', 'marginBottom': '0.5rem'}),
+                        dcc.Input(id="approval-plan-id", type="text", value="", placeholder="Enter Plan ID",
+                                  style={'width': '100%', 'padding': '0.6rem', 'border': '2px solid rgba(0,0,0,0.1)', 'borderRadius': '12px'}),
+                        html.Div([
+                            html.Button("✅ Approve", id="approve-plan-btn", className="modern-btn btn-success", n_clicks=0,
+                                       style={'marginRight': '0.5rem'}),
+                            html.Button("❌ Reject", id="reject-plan-btn", className="modern-btn btn-danger", n_clicks=0)
+                        ], style={'marginTop': '0.75rem'}),
+                        html.Div(id="approval-decision-status", style={'marginTop': '0.5rem'})
+                    ], className="col-md-4"),
+                    html.Div([
+                        html.Button("🔄 Refresh Pending", id="refresh-pending-btn", className="modern-btn btn-secondary", n_clicks=0,
+                                   style={'width': '100%'}),
+                        html.Div(id="pending-approvals", style={'marginTop': '0.75rem'})
+                    ], className="col-md-4")
+                ], className="row")
+            ], className="approvals-panel"),
+
+            # Approvals History Panel
+            html.Div([
+                html.H3("🗂️ Approval History", style={'color': '#1976d2', 'marginBottom': '1.0rem', 'fontSize': '1.5rem'}),
+                html.Div([
+                    html.Button("📜 Load History", id="load-history-btn", className="modern-btn btn-secondary", n_clicks=0,
+                               style={'marginRight': '0.5rem'}),
+                    dcc.Input(id="history-limit", type="number", value=50, min=10, max=500,
+                              style={'width': '120px', 'padding': '0.4rem', 'border': '2px solid rgba(0,0,0,0.1)', 'borderRadius': '12px'}),
+                ]),
+                html.Div(id="approvals-history", style={'marginTop': '0.75rem'})
+            ], className="approvals-panel"),
+
+            # ML Performance Panel
+            html.Div([
+                html.H3("🤖 ML Performance & Training", style={'color': '#1976d2', 'marginBottom': '1.0rem', 'fontSize': '1.5rem'}),
+                html.Div([
+                    html.Button("🚀 Train Now", id="ml-train-btn", className="modern-btn btn-primary", n_clicks=0,
+                               style={'marginRight': '0.5rem'}),
+                    html.Button("📦 Refresh Registry", id="ml-reg-refresh", className="modern-btn btn-secondary", n_clicks=0,
+                               style={'marginRight': '0.5rem'}),
+                    html.Button("📊 Refresh Metrics", id="ml-metrics-refresh", className="modern-btn btn-secondary", n_clicks=0)
+                ]),
+                html.Div(id="ml-train-status", style={'marginTop': '0.75rem'}),
+                html.Div([
+                    html.H5("Model Registry"),
+                    html.Div(id="ml-registry", style={'marginBottom': '0.75rem'})
+                ]),
+                html.Div([
+                    html.H5("Recent Metrics"),
+                    html.Div(id="ml-metrics")
+                ])
+            ], className="ml-panel"),
             
             # Event Log
             html.Div([
@@ -199,7 +286,299 @@ class InteractiveWebDashboard:
     
     def setup_callbacks(self):
         """Setup dashboard callbacks with comprehensive error handling"""
-        pass  # Callbacks will be setup by the combined dashboard
+        # Provide filtered data access for depot selection by using Store or direct dependency
+        @self.app.callback(Output('dashboard-state', 'data'),
+                          Input('depot-filter', 'value'),
+                          prevent_initial_call=False)
+        def update_depot_state(depot_id):
+            try:
+                state = getattr(self, 'current_state', {})
+                if not depot_id:
+                    return state
+                trains = state.get('trains', {})
+                bays = state.get('bays', {})
+                filtered_trains = {tid: t for tid, t in trains.items() if str(t.get('depot_id', depot_id)) == depot_id}
+                filtered_bays = {bid: b for bid, b in bays.items() if str(b.get('depot_id', depot_id)) == depot_id}
+                return {**state, 'trains': filtered_trains, 'bays': filtered_bays}
+            except Exception:
+                return getattr(self, 'current_state', {})
+
+        # Scenario run & compare callback
+        @self.app.callback(Output('scenario-results', 'children'),
+                          Input('run-scenario-btn', 'n_clicks'),
+                          State('scenario-type', 'value'),
+                          State('scenario-duration', 'value'),
+                          State('scenario-speed', 'value'))
+        def run_scenario(n_clicks, scen_type, duration, speed):
+            if not n_clicks:
+                return []
+            try:
+                config = {
+                    'duration_minutes': int(duration or 60),
+                    'time_multiplier': float(speed or 10.0)
+                }
+                if scen_type == 'emergency':
+                    config['emergency_type'] = 'general'
+                elif scen_type == 'maintenance':
+                    config['bay_outages'] = {'count': 1, 'duration_hours': 4}
+                elif scen_type == 'failures':
+                    config['simulate_failures'] = {'count': 2}
+                results = {}
+                if hasattr(self.digital_twin, 'scenario_manager'):
+                    results = self.digital_twin.scenario_manager.run_scenario(
+                        self.digital_twin.scenario_manager.create_scenario('adhoc', config)
+                    )
+                perf = results.get('performance_changes', {}) if isinstance(results, dict) else {}
+                recs = results.get('recommendations', []) if isinstance(results, dict) else []
+                return [
+                    html.Div([
+                        html.H4("Scenario Results", style={'color': '#1976d2'}),
+                        html.Ul([
+                            html.Li(f"Δ Inducted: {perf.get('inducted_trains_change', 0)}"),
+                            html.Li(f"Δ Bay Utilization: {perf.get('bay_utilization_change', 0):.1f}%"),
+                            html.Li(f"Δ Risk: {perf.get('risk_change', 0):.3f}")
+                        ]),
+                        html.H5("Recommendations"),
+                        html.Ul([html.Li(r) for r in recs])
+                    ], className="card p-3")
+                ]
+            except Exception as e:
+                return [html.Div(f"Scenario error: {e}", style={'color': 'red'})]
+
+        # Approvals: helper to call API
+        def _api_base():
+            # Prefer env var; default localhost:8000
+            return os.environ.get('KMRL_API_BASE', 'http://127.0.0.1:8000')
+
+        def _submit_plan_to_api(plan_payload: dict):
+            try:
+                resp = requests.post(f"{_api_base()}/approvals/submit", json=plan_payload, timeout=10)
+                if resp.ok:
+                    return resp.json()
+                return {'error': resp.text}
+            except Exception as e:
+                return {'error': str(e)}
+
+        def _list_pending_from_api():
+            try:
+                resp = requests.get(f"{_api_base()}/approvals/pending", timeout=10)
+                if resp.ok:
+                    return resp.json().get('pending', [])
+                return []
+            except Exception:
+                return []
+
+        def _decision_to_api(plan_id: str, decision: str, reason: str = None):
+            try:
+                params = {'decision': decision}
+                if reason:
+                    params['reason'] = reason
+                resp = requests.post(f"{_api_base()}/approvals/{plan_id}/decision", params=params, timeout=10)
+                if resp.ok:
+                    return resp.json()
+                return {'error': resp.text}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # Approvals: Submit current plan (uses current AI results if available)
+        @self.app.callback(Output('approval-submit-status', 'children'),
+                          Input('submit-approval-btn', 'n_clicks'))
+        def submit_plan(n_clicks):
+            if not n_clicks:
+                return ""
+            try:
+                # Try to collect latest plan from AI data/optimizer
+                plan_items = []
+                if self.ai_data_processor and hasattr(self.ai_data_processor, 'get_detailed_train_list'):
+                    details = self.ai_data_processor.get_detailed_train_list()
+                    # Include only inducted or top-ranked candidates if present
+                    plan_items = [
+                        {k: t.get(k) for k in ('train_id','score','bay_assignment','depot_id')}
+                        for t in details if t.get('inducted') or t.get('score') is not None
+                    ][:20]
+                payload = {
+                    'created_at': datetime.now().isoformat(),
+                    'depot_id': '',
+                    'items': plan_items
+                }
+                res = _submit_plan_to_api(payload)
+                if 'error' in res:
+                    return html.Div(f"Submit failed: {res['error']}", style={'color':'red'})
+                return html.Div(f"Submitted. Plan ID: {res.get('plan_id')}", style={'color':'#1976d2'})
+            except Exception as e:
+                return html.Div(f"Submit error: {e}", style={'color':'red'})
+
+        # Approvals: Refresh pending list
+        @self.app.callback(Output('pending-approvals', 'children'),
+                          Input('refresh-pending-btn', 'n_clicks'))
+        def refresh_pending(n_clicks):
+            if not n_clicks:
+                return ""
+            pending = _list_pending_from_api()
+            if not pending:
+                return html.Div("No pending approvals.")
+            rows = []
+            for p in pending[:20]:
+                rows.append(html.Li(f"{p.get('plan_id')} - by {p.get('submitted_by')} @ {p.get('submitted_at')}") )
+            return html.Ul(rows)
+
+        # Approvals: Approve/Reject decision
+        @self.app.callback(Output('approval-decision-status', 'children'),
+                          Input('approve-plan-btn', 'n_clicks'),
+                          Input('reject-plan-btn', 'n_clicks'),
+                          State('approval-plan-id', 'value'))
+        def decide_plan(n_approve, n_reject, plan_id):
+            ctx = callback_context
+            if not ctx.triggered:
+                return ""
+            if not plan_id:
+                return html.Div("Enter a plan ID.", style={'color':'red'})
+            button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+            decision = 'approved' if button_id == 'approve-plan-btn' else 'rejected'
+            res = _decision_to_api(plan_id.strip(), decision)
+            if 'error' in res:
+                return html.Div(f"Decision failed: {res['error']}", style={'color':'red'})
+            return html.Div(f"Plan {plan_id} {decision}.", style={'color':'#1976d2'})
+
+        # Approvals: Load history
+        @self.app.callback(Output('approvals-history', 'children'),
+                          Input('load-history-btn', 'n_clicks'),
+                          State('history-limit', 'value'))
+        def load_history(n_clicks, limit):
+            if not n_clicks:
+                return ""
+            try:
+                resp = requests.get(f"{_api_base()}/approvals/history", params={'limit': int(limit or 50)}, timeout=10)
+                if not resp.ok:
+                    return html.Div(f"History load failed: {resp.text}", style={'color':'red'})
+                history = resp.json().get('history', [])
+                if not history:
+                    return html.Div("No history found.")
+                # Render simple table
+                header = html.Tr([html.Th(h) for h in ["id","plan_id","event","actor","event_time","details"]])
+                rows = []
+                for item in history:
+                    rows.append(html.Tr([
+                        html.Td(item.get('id')),
+                        html.Td(item.get('plan_id')),
+                        html.Td(item.get('event')),
+                        html.Td(item.get('actor')),
+                        html.Td(item.get('event_time')),
+                        html.Td(item.get('details')),
+                    ]))
+                return html.Table([header] + rows, style={'width':'100%','borderCollapse':'collapse'})
+            except Exception as e:
+                return html.Div(f"History error: {e}", style={'color':'red'})
+
+        # ML: Train now
+        @self.app.callback(Output('ml-train-status', 'children'),
+                          Input('ml-train-btn', 'n_clicks'))
+        def ml_train(n_clicks):
+            if not n_clicks:
+                return ""
+            try:
+                resp = requests.post(f"{_api_base()}/ml/train_now", timeout=30)
+                if not resp.ok:
+                    return html.Div(f"Train failed: {resp.text}", style={'color':'red'})
+                data = resp.json()
+                return html.Div(f"Trained model {data.get('model_id')} with metrics {data.get('metrics')}")
+            except Exception as e:
+                return html.Div(f"Train error: {e}", style={'color':'red'})
+
+        # ML: Registry refresh
+        @self.app.callback(Output('ml-registry', 'children'),
+                          Input('ml-reg-refresh', 'n_clicks'))
+        def ml_registry_refresh(n_clicks):
+            if not n_clicks:
+                return ""
+            try:
+                resp = requests.get(f"{_api_base()}/ml/registry", timeout=10)
+                if not resp.ok:
+                    return html.Div(f"Registry failed: {resp.text}", style={'color':'red'})
+                models = resp.json().get('models', [])
+                if not models:
+                    return html.Div("No models in registry.")
+                header = html.Tr([html.Th(h) for h in ["model_id","model_name","version","created_at","created_by","is_active"]])
+                rows = []
+                for m in models[:50]:
+                    rows.append(html.Tr([
+                        html.Td(m.get('model_id')),
+                        html.Td(m.get('model_name')),
+                        html.Td(m.get('version')),
+                        html.Td(m.get('created_at')),
+                        html.Td(m.get('created_by')),
+                        html.Td(m.get('is_active')),
+                    ]))
+                return html.Table([header] + rows, style={'width':'100%','borderCollapse':'collapse'})
+            except Exception as e:
+                return html.Div(f"Registry error: {e}", style={'color':'red'})
+
+        # ML: Metrics refresh
+        @self.app.callback(Output('ml-metrics', 'children'),
+                          Input('ml-metrics-refresh', 'n_clicks'))
+        def ml_metrics_refresh(n_clicks):
+            if not n_clicks:
+                return ""
+            try:
+                resp = requests.get(f"{_api_base()}/ml/metrics", timeout=10)
+                if not resp.ok:
+                    return html.Div(f"Metrics failed: {resp.text}", style={'color':'red'})
+                metrics = resp.json().get('metrics', [])
+                if not metrics:
+                    return html.Div("No metrics logged yet.")
+                header = html.Tr([html.Th(h) for h in ["timestamp","model_id","metric_name","metric_value"]])
+                rows = []
+                for r in metrics[:100]:
+                    rows.append(html.Tr([
+                        html.Td(r.get('timestamp')),
+                        html.Td(r.get('model_id')),
+                        html.Td(r.get('metric_name')),
+                        html.Td(f"{r.get('metric_value'):.4f}" if isinstance(r.get('metric_value'), (int,float)) else r.get('metric_value')),
+                    ]))
+                return html.Table([header] + rows, style={'width':'100%','borderCollapse':'collapse'})
+            except Exception as e:
+                return html.Div(f"Metrics error: {e}", style={'color':'red'})
+
+        # Warnings banner from system status freshness + contingency
+        @self.app.callback(Output('warnings-banner', 'children'),
+                          Input('interval-component', 'n_intervals'))
+        def warnings_banner(_):
+            try:
+                status = requests.get(f"{_api_base()}/system/status", timeout=5)
+                cont = requests.get(f"{_api_base()}/system/contingency", timeout=5)
+                warns = []
+                if status.ok:
+                    data = status.json().get('system_status', {})
+                    freshness = data.get('data_freshness', {})
+                    stale = [k for k, v in freshness.items() if v == 'stale']
+                    if stale:
+                        warns.append(html.Div(f"Warning: stale data sources: {', '.join(stale)}", style={'color':'#a15c00','backgroundColor':'#fff3cd','padding':'8px','border':'1px solid #ffeeba','borderRadius':'8px','marginBottom':'6px'}))
+                if cont.ok:
+                    c = cont.json()
+                    if c.get('mode') == 'contingency':
+                        warns.append(html.Div(f"Contingency Mode: available {c.get('available')} < required {c.get('required')}", style={'color':'#842029','backgroundColor':'#f8d7da','padding':'8px','border':'1px solid #f5c2c7','borderRadius':'8px'}))
+                return warns
+            except Exception:
+                return ""
+
+        # Lock plan action with confirmation
+        @self.app.callback(Output('lock-status', 'children'),
+                          Input('lock-plan-btn', 'n_clicks'),
+                          State('lock-plan-id', 'value'),
+                          State('lock-depot-id', 'value'))
+        def lock_plan(n_clicks, plan_id, depot_id):
+            if not n_clicks:
+                return ""
+            if not plan_id:
+                return html.Div("Enter approved plan ID.", style={'color':'red'})
+            try:
+                resp = requests.post(f"{_api_base()}/approvals/{plan_id}/lock", params={'depot_id': depot_id or ''}, timeout=10)
+                if not resp.ok:
+                    return html.Div(f"Lock failed: {resp.text}", style={'color':'red'})
+                data = resp.json()
+                return html.Div(f"Plan locked at {data.get('locked_at')}.", style={'color':'#1976d2'})
+            except Exception as e:
+                return html.Div(f"Lock error: {e}", style={'color':'red'})
     
     def _create_bay_layout_figure(self):
         """Create bay layout visualization showing all service bays with real data"""
