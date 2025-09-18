@@ -1,0 +1,26 @@
+slot_id,available_bays,start_time,end_time,assigned_crew,cleaning_type
+CS001,2,21:00,23:00,Crew A,deep_clean
+CS002,2,22:00,00:00,Crew B,regular_clean
+CS003,1,23:00,01:00,Crew C,deep_clean
+CS004,2,00:00,02:00,Crew A,regular_clean
+CS005,1,01:00,03:00,Crew B,deep_clean
+CS006,2,02:00,04:00,Crew C,regular_clean
+CS007,1,03:00,05:00,Crew A,deep_clean
+CS008,2,04:00,06:00,Crew B,regular_clean
+CS009,1,05:00,07:00,Crew C,deep_clean
+CS010,2,06:00,08:00,Crew A,regular_clean
+CS011,1,07:00,09:00,Crew B,deep_clean
+CS012,2,08:00,10:00,Crew C,regular_clean
+CS013,1,09:00,11:00,Crew A,deep_clean
+CS014,2,10:00,12:00,Crew B,regular_clean
+CS015,1,11:00,13:00,Crew C,deep_clean
+CS016,2,12:00,14:00,Crew A,regular_clean
+CS017,1,13:00,15:00,Crew B,deep_clean
+CS018,2,14:00,16:00,Crew C,regular_clean
+CS019,1,15:00,17:00,Crew A,deep_clean
+CS020,2,16:00,18:00,Crew B,regular_clean
+CS021,1,17:00,19:00,Crew C,deep_clean
+CS022,2,18:00,20:00,Crew A,regular_clean
+CS023,1,19:00,21:00,Crew B,deep_clean
+CS024,2,20:00,22:00,Crew C,regular_clean
+CS025,1,21:00,23:00,Crew A,deep_clean

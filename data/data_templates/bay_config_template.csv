@@ -1,0 +1,8 @@
+bay_id,bay_type,max_capacity,geometry_score,depot_id,power_available,status
+SB001,service,2,0.95,DepotA,true,available
+SB002,service,2,0.90,DepotA,true,available
+SB003,service,2,0.85,DepotA,true,available
+MB001,maintenance,1,0.80,DepotA,true,available
+MB002,maintenance,1,0.75,DepotA,true,available
+STB001,storage,4,0.70,DepotA,true,available
+

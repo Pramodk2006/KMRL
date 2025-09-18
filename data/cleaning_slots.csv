@@ -1,9 +1,5 @@
-cleaning_slot_id,available_bays,slot_type,estimated_time_hours,staff_required,equipment_available
-CS1,1,deep_clean,5,6,True
-CS2,0,basic_clean,2,5,True
-CS3,1,deep_clean,5,5,False
-CS4,1,basic_clean,2,3,False
-CS5,1,maintenance_clean,8,5,False
-CS6,3,express_clean,1,6,True
-CS7,2,deep_clean,6,2,True
-CS8,0,inspection_clean,4,4,True
+slot_id,available_bays
+CS1,2
+CS2,1
+CS3,2
+CS4,1

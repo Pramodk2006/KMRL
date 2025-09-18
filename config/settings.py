@@ -23,7 +23,7 @@ SETTINGS = {
   "optimization": {
     "max_solve_time_seconds": 60,
     "solver_threads": 4,
-    "enable_logging": true,
+    "enable_logging": True,
     "geometry_weight": 1.0,
     "shunting_weight": 1.0
   },
@@ -39,7 +39,7 @@ SETTINGS = {
   },
   "safety": {
     "min_fitness_days_ahead": 1,
-    "enable_emergency_override": true,
+    "enable_emergency_override": True,
     "audit_trail_retention_days": 365
   }
 }

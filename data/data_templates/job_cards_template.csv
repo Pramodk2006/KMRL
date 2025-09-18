@@ -1,0 +1,6 @@
+train_id,job_card_id,status,work_type,priority,description,assigned_technician,estimated_duration
+T001,JC001,closed,preventive,medium,Regular maintenance check,John Smith,2
+T002,JC002,open,corrective,high,Brake system inspection,Alice Johnson,4
+T003,JC003,closed,preventive,low,Cleaning and inspection,Mike Brown,1
+T004,JC004,open,corrective,high,AC system repair,Sarah Wilson,6
+T005,JC005,closed,preventive,medium,Engine oil change,David Lee,2

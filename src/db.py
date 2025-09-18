@@ -25,6 +25,11 @@ def init_db():
             bay_geometry_score REAL
         )
     ''')
+    # Schema migration: add depot_id if missing
+    try:
+        cur.execute("ALTER TABLE trains ADD COLUMN depot_id TEXT")
+    except Exception:
+        pass
     cur.execute('''
         CREATE TABLE IF NOT EXISTS job_cards (
             train_id TEXT PRIMARY KEY,
@@ -39,6 +44,11 @@ def init_db():
             priority TEXT
         )
     ''')
+    # Schema migration: add depot_id if missing on cleaning_slots
+    try:
+        cur.execute("ALTER TABLE cleaning_slots ADD COLUMN depot_id TEXT")
+    except Exception:
+        pass
     cur.execute('''
         CREATE TABLE IF NOT EXISTS bay_config (
             bay_id TEXT PRIMARY KEY,
@@ -47,6 +57,11 @@ def init_db():
             geometry_score REAL
         )
     ''')
+    # Schema migration: add depot_id if missing on bay_config
+    try:
+        cur.execute("ALTER TABLE bay_config ADD COLUMN depot_id TEXT")
+    except Exception:
+        pass
     cur.execute('''
         CREATE TABLE IF NOT EXISTS branding_contracts (
             contract_id TEXT PRIMARY KEY,
@@ -141,6 +156,18 @@ def init_db():
             last_heartbeat TEXT,
             status TEXT,
             detail TEXT
+        )
+    ''')
+    # Manual overrides audit (fleet readiness overrides)
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS manual_overrides (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            train_id TEXT,
+            field TEXT,
+            value TEXT,
+            reason TEXT,
+            overridden_by TEXT,
+            overridden_at TEXT
         )
     ''')
     conn.commit()

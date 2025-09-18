@@ -1,0 +1,6 @@
+﻿"job_card_id","train_id","status","work_type","priority","description","assigned_technician","estimated_duration","last_updated"
+"WO00001","T001","closed","PM","3","Auto-imported job","","","2025-09-17T12:23:59"
+"WO00002","T002","open","PM","3","Auto-imported job","","","2025-09-17T12:23:59"
+"WO00003","T003","closed","PM","3","Auto-imported job","","","2025-09-17T12:23:59"
+"WO00004","T004","open","PM","3","Auto-imported job","","","2025-09-17T12:23:59"
+"WO00005","T005","closed","PM","3","Auto-imported job","","","2025-09-17T12:23:59"

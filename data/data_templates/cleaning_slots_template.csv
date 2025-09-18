@@ -1,0 +1,6 @@
+slot_id,available_bays,start_time,end_time,assigned_crew,cleaning_type
+CS001,2,21:00,23:00,Crew A,deep_clean
+CS002,2,22:00,00:00,Crew B,regular_clean
+CS003,1,23:00,01:00,Crew C,deep_clean
+CS004,2,00:00,02:00,Crew A,regular_clean
+CS005,1,01:00,03:00,Crew B,deep_clean

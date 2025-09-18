@@ -323,6 +323,18 @@ class KMRLIntelliFleetOrchestrator:
             
         logger.info("✅ Background services started!")
         
+    def start_data_management_dashboard(self, host='127.0.0.1', port=8051):
+        """Start the data management dashboard."""
+        
+        logger.info(f"📊 Starting data management dashboard at http://{host}:{port}")
+        
+        try:
+            from src.data_management_dashboard import DataManagementDashboard
+            dashboard = DataManagementDashboard()
+            dashboard.run(host=host, port=port, debug=False)
+        except Exception as e:
+            logger.error(f"Failed to start data management dashboard: {e}")
+    
     def start_web_dashboard(self, host='127.0.0.1', port=8050, debug=False):
         """Start the combined Dash web dashboard."""
         
@@ -408,10 +420,19 @@ class KMRLIntelliFleetOrchestrator:
         
         logger.info("🌟 System Status:")
         logger.info(f"📊 Web Dashboard: http://{host}:{dashboard_port}")
+        logger.info(f"📈 Data Management: http://{host}:8051")
         logger.info(f"🔌 API Gateway: http://{host}:{api_port}")
         logger.info(f"📱 Mobile Server: http://{host}:{mobile_port}")
         logger.info(f"📡 IoT WebSocket: ws://{host}:8765")
         logger.info("🎉 KMRL IntelliFleet System is fully operational!")
+        
+        # Start data management dashboard in separate thread
+        data_mgmt_thread = threading.Thread(
+            target=self.start_data_management_dashboard,
+            args=(host, 8051),
+            daemon=True
+        )
+        data_mgmt_thread.start()
         
         # Start web dashboard (blocking - main thread)
         self.start_web_dashboard(host=host, port=dashboard_port, debug=False)

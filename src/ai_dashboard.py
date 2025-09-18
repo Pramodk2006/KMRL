@@ -5,7 +5,7 @@ from .dashboard import InductionDashboard
 
 class AIEnhancedDashboard(InductionDashboard):
     """Enhanced dashboard with AI insights"""
-    
+
     def display_ai_insights(self):
         """Display AI-powered insights"""
         ai_insights = self.current_result.get('ai_insights', {})

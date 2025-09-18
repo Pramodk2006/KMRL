@@ -13,7 +13,7 @@ import uuid
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from .db import upsert, insert_rows, fetch_query
+from .db import upsert, insert_rows, fetch_query, init_db
 from .branding_sla import get_sla_status
 from .ml_feedback import compute_drift_metrics, retrain_predictive_model_if_needed
 from .predictive_model import TrainingPipeline, ModelRegistry
@@ -80,6 +80,11 @@ class APIGateway:
     """Enterprise API Gateway for KMRL IntelliFleet"""
     
     def __init__(self, digital_twin_engine, ai_optimizer):
+        # Ensure database schema exists
+        try:
+            init_db()
+        except Exception as e:
+            logger.warning(f"DB init failed (continuing): {e}")
         self.digital_twin = digital_twin_engine
         self.ai_optimizer = ai_optimizer
         self.app = FastAPI(
@@ -260,8 +265,7 @@ class APIGateway:
         
         @self.app.get("/system/status")
         async def get_system_status(
-            depot_id: Optional[str] = None,
-            user_info: dict = Depends(self.check_role_permission("viewer"))
+            depot_id: Optional[str] = None
         ):
             """Get current system status"""
             current_state = self.digital_twin.get_current_state()
@@ -272,19 +276,41 @@ class APIGateway:
                     pass
             except Exception:
                 pass
-            # Data freshness & validation signals (latency flags)
+            # Data freshness & validation signals (latency flags) and counts
             try:
                 freshness = {}
+                data_counts = {}
                 from .db import fetch_df, get_heartbeats
-                for tbl in ['job_cards','trains','cleaning_slots','bay_config','branding_contracts']:
+                for tbl in ['trains','job_cards','cleaning_slots','bay_config','branding_contracts']:
                     df = fetch_df(tbl)
                     freshness[tbl] = 'stale' if df.empty else 'ok'
+                    try:
+                        data_counts[tbl] = int(len(df))
+                    except Exception:
+                        data_counts[tbl] = 0
                 # Integration heartbeats
                 hb = get_heartbeats()
                 freshness['integration'] = hb.to_dict(orient='records') if not hb.empty else []
                 current_state['data_freshness'] = freshness
+                current_state['data_counts'] = data_counts
+                # Last uploads by table from heartbeats (sources like upload_trains)
+                try:
+                    last_uploads = {}
+                    if not hb.empty:
+                        df_hb = hb.copy()
+                        if 'source' in df_hb.columns and 'last_heartbeat' in df_hb.columns:
+                            df_hb = df_hb[df_hb['source'].str.startswith('upload_')]
+                            for _, row in df_hb.iterrows():
+                                src = str(row['source'])
+                                tbl = src.replace('upload_', '', 1)
+                                last_uploads[tbl] = row['last_heartbeat']
+                    current_state['last_uploads'] = last_uploads
+                except Exception:
+                    current_state['last_uploads'] = {}
             except Exception:
                 current_state['data_freshness'] = {'error': 'unavailable'}
+                current_state['data_counts'] = {}
+                current_state['last_uploads'] = {}
             # Optional depot filter
             if depot_id:
                 try:
@@ -312,7 +338,7 @@ class APIGateway:
             
             return {
                 "system_status": current_state,
-                "user": user_info["user_id"],
+                "user": "anonymous",
                 "timestamp": datetime.now().isoformat()
             }
 
@@ -655,6 +681,143 @@ class APIGateway:
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Metrics fetch failed: {e}")
 
+        # ===== Production Maximo Integration =====
+        @self.app.post("/maximo/refresh")
+        async def refresh_maximo_data(user_info: dict = Depends(self.check_role_permission("operator"))):
+            try:
+                # Try production Maximo first, fallback to enhanced
+                try:
+                    from .production_maximo_integration import get_production_maximo
+                    maximo = get_production_maximo()
+                    result = maximo.refresh_data()
+                    if result.get('success'):
+                        return result
+                except Exception as prod_error:
+                    logger.warning(f"Production Maximo failed: {prod_error}")
+                
+                # Fallback to enhanced Maximo
+                from .enhanced_maximo_integration import get_maximo_integration
+                maximo = get_maximo_integration()
+                result = maximo.refresh_data()
+                return result
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/maximo/status")
+        async def get_maximo_status(user_info: dict = Depends(self.check_role_permission("viewer"))):
+            try:
+                # Try production Maximo first
+                try:
+                    from .production_maximo_integration import get_production_maximo
+                    maximo = get_production_maximo()
+                    status = maximo.get_connection_status()
+                    return status
+                except Exception:
+                    pass
+                
+                # Fallback to enhanced Maximo
+                from .enhanced_maximo_integration import get_maximo_integration
+                maximo = get_maximo_integration()
+                status = maximo.check_connection()
+                return status
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/maximo/workorders")
+        async def get_work_orders(
+            train_ids: Optional[str] = None,
+            status: Optional[str] = None,
+            user_info: dict = Depends(self.check_role_permission("viewer"))
+        ):
+            try:
+                from .production_maximo_integration import get_production_maximo
+                maximo = get_production_maximo()
+                
+                train_list = train_ids.split(',') if train_ids else None
+                df = maximo.fetch_work_orders(train_list, status)
+                
+                return {
+                    'work_orders': df.to_dict('records') if not df.empty else [],
+                    'count': len(df),
+                    'timestamp': datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/maximo/assets")
+        async def get_assets(
+            train_ids: Optional[str] = None,
+            user_info: dict = Depends(self.check_role_permission("viewer"))
+        ):
+            try:
+                from .production_maximo_integration import get_production_maximo
+                maximo = get_production_maximo()
+                
+                train_list = train_ids.split(',') if train_ids else None
+                df = maximo.fetch_assets(train_list)
+                
+                return {
+                    'assets': df.to_dict('records') if not df.empty else [],
+                    'count': len(df),
+                    'timestamp': datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.post("/maximo/workorders")
+        async def create_work_order(
+            work_order: Dict[str, Any],
+            user_info: dict = Depends(self.check_role_permission("operator"))
+        ):
+            try:
+                from .production_maximo_integration import get_production_maximo
+                maximo = get_production_maximo()
+                
+                result = maximo.create_work_order(work_order)
+                return result
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.put("/maximo/workorders/{work_order_id}")
+        async def update_work_order(
+            work_order_id: str,
+            status: str,
+            notes: Optional[str] = None,
+            user_info: dict = Depends(self.check_role_permission("operator"))
+        ):
+            try:
+                from .production_maximo_integration import get_production_maximo
+                maximo = get_production_maximo()
+                
+                result = maximo.update_work_order_status(work_order_id, status, notes)
+                return result
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.post("/maximo/upload")
+        async def upload_maximo_data(
+            data_type: str,
+            data: List[Dict[str, Any]],
+            user_info: dict = Depends(self.check_role_permission("operator"))
+        ):
+            try:
+                from .enhanced_maximo_integration import get_maximo_integration
+                maximo = get_maximo_integration()
+                result = maximo.upload_manual_data(data, data_type)
+                return result
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/maximo/templates")
+        async def get_maximo_templates(user_info: dict = Depends(self.check_role_permission("viewer"))):
+            try:
+                from .enhanced_maximo_integration import get_maximo_integration
+                maximo = get_maximo_integration()
+                templates = maximo.get_manual_data_templates()
+                return templates
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
         # ===== Data Ingestion: file uploads (CSV/JSON) =====
 
         @self.app.post("/ingest/{table}")
@@ -662,6 +825,7 @@ class APIGateway:
             table: str,
             file: UploadFile = File(...),
             fmt: Optional[str] = None,
+            allow_missing: Optional[bool] = False,
             user_info: dict = Depends(self.check_role_permission("operator"))
         ):
             # Allowed tables and validation schemas
@@ -761,12 +925,18 @@ class APIGateway:
                 required_cols = [c for c, r in schema.items() if r.get('required')]
                 missing = [c for c in required_cols if c not in df.columns]
                 if missing:
-                    return {
-                        'status': 'error',
-                        'message': 'Missing required columns',
-                        'missing_columns': missing,
-                        'expected_columns': list(schema.keys())
-                    }
+                    if not allow_missing:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                'message': 'Missing required columns',
+                                'missing_columns': missing,
+                                'expected_columns': list(schema.keys())
+                            }
+                        )
+                    # permissive path: add missing required columns as None
+                    for col in missing:
+                        df[col] = None
                 # Normalize and type-coerce; collect row-level errors
                 errors: List[Dict[str, Any]] = []
                 for col, rules in schema.items():
@@ -807,6 +977,13 @@ class APIGateway:
                         'errors': errors[:100],
                         'total_errors': len(errors)
                     }
+                # Keep only allowed schema columns to avoid DB unknown-column errors
+                allowed_cols = list(schema.keys())
+                df = df[[c for c in df.columns if c in allowed_cols]]
+                # Ensure all required columns exist (fill with None if missing)
+                for c in allowed_cols:
+                    if c not in df.columns:
+                        df[c] = None
                 # Upsert vs insert
                 from .db import upsert, insert_rows, upsert_heartbeat
                 key_cols = allowed[table]['key']
@@ -921,6 +1098,132 @@ class APIGateway:
             if table not in specs:
                 raise HTTPException(status_code=400, detail=f"Unsupported table: {table}")
             return {'table': table, **specs[table]}
+
+        # ===== Fleet Readiness Snapshot =====
+        @self.app.get("/fleet/readiness")
+        async def fleet_readiness(user_info: dict = Depends(self.check_role_permission("viewer"))):
+            try:
+                from .db import fetch_df
+                trains = fetch_df('trains')
+                jobs = fetch_df('job_cards')
+                contracts = fetch_df('branding_contracts')
+                overrides = fetch_df('manual_overrides')
+
+                if trains.empty:
+                    return {'rows': [], 'count': 0}
+
+                # Merge job card status
+                if not jobs.empty:
+                    trains = trains.merge(jobs[['train_id','job_card_status']], on='train_id', how='left')
+                else:
+                    trains['job_card_status'] = None
+
+                # Branding intensity by train (count of active contracts)
+                branding_map = {}
+                if not contracts.empty:
+                    try:
+                        active = contracts.copy()
+                        active['start_date'] = pd.to_datetime(active['start_date'], errors='coerce')
+                        active['end_date'] = pd.to_datetime(active['end_date'], errors='coerce')
+                        now = pd.Timestamp.now()
+                        active = active[(active['start_date']<=now) & (active['end_date']>=now)]
+                        branding_map = active.groupby('train_id').size().to_dict()
+                    except Exception:
+                        branding_map = contracts.groupby('train_id').size().to_dict()
+                trains['branding_level'] = trains['train_id'].map(branding_map).fillna(0).astype(int)
+
+                # Compute readiness fields
+                def fitness_flag(v):
+                    try:
+                        dt = pd.to_datetime(v, errors='coerce')
+                        return 'OK' if pd.notna(dt) and dt >= pd.Timestamp.now() else 'Expired'
+                    except Exception:
+                        return 'Expired'
+                trains['fitness_status'] = trains['fitness_valid_until'].apply(fitness_flag)
+                trains['maintenance_status'] = trains['job_card_status'].fillna('closed').apply(lambda s: 'Open' if str(s).lower()=='open' else 'OK')
+                # Apply latest manual overrides per train for maintenance_status
+                override_info = {}
+                try:
+                    if not overrides.empty:
+                        latest = overrides[overrides['field']=='maintenance_status'].sort_values('overridden_at').groupby('train_id').tail(1)
+                        ov_map = latest.set_index('train_id')['value'].to_dict()
+                        ov_reason = latest.set_index('train_id')['reason'].to_dict()
+                        ov_by = latest.set_index('train_id')['overridden_by'].to_dict()
+                        def apply_ov(tid, val):
+                            if tid in ov_map:
+                                override_info[tid] = {
+                                    'reason': ov_reason.get(tid, ''),
+                                    'by': ov_by.get(tid, ''),
+                                    'has_override': True
+                                }
+                                return ov_map[tid]
+                            return val
+                        trains['maintenance_status'] = trains.apply(lambda r: apply_ov(r['train_id'], r['maintenance_status']), axis=1)
+                except Exception:
+                    pass
+                trains['branding_badges'] = trains['branding_level'].apply(lambda n: '💲'*min(3, max(0,int(n))))
+                trains['readiness'] = trains.apply(lambda r: 'Go' if (r['fitness_status']=='OK' and r['maintenance_status']=='OK') else ('Standby' if r['fitness_status']=='OK' else 'No-Go'), axis=1)
+
+                out = []
+                for _, row in trains.iterrows():
+                    train_id = row.get('train_id')
+                    ov = override_info.get(train_id, {})
+                    out.append({
+                        'train_id': train_id,
+                        'fitness': ('✅ OK' if row['fitness_status']=='OK' else '❌ Expired'),
+                        'maintenance': ('✅ OK' if str(row['maintenance_status']).upper()=='OK' else '🔧 Open'),
+                        'branding': row['branding_badges'] or '',
+                        'mileage_km': row.get('mileage_km'),
+                        'overall_readiness': row['readiness'],
+                        'override_info': ov
+                    })
+                return {'rows': out, 'count': len(out), 'generated_at': datetime.now().isoformat()}
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to compute readiness: {e}")
+
+        @self.app.post("/fleet/override")
+        async def set_override(train_id: str, field: str, value: str, reason: str = "", user_info: dict = Depends(self.check_role_permission("operator"))):
+            try:
+                if field not in ("maintenance_status", "fitness_status"):
+                    raise HTTPException(status_code=400, detail="Unsupported field for override")
+                from .db import insert_rows
+                insert_rows('manual_overrides', [{
+                    'train_id': train_id,
+                    'field': field,
+                    'value': value,
+                    'reason': reason,
+                    'overridden_by': user_info['user_id'],
+                    'overridden_at': datetime.now().isoformat()
+                }])
+                return {'status': 'ok', 'train_id': train_id, 'field': field, 'value': value}
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to set override: {e}")
+
+        @self.app.delete("/fleet/override/{train_id}/{field}")
+        async def revert_override(train_id: str, field: str, user_info: dict = Depends(self.check_role_permission("operator"))):
+            try:
+                from .db import fetch_query
+                # Get latest override for this train+field
+                latest = fetch_query(
+                    "SELECT id FROM manual_overrides WHERE train_id = ? AND field = ? ORDER BY overridden_at DESC LIMIT 1",
+                    (train_id, field)
+                )
+                if latest.empty:
+                    raise HTTPException(status_code=404, detail="No override found to revert")
+                # Delete the latest override
+                from .db import get_connection
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("DELETE FROM manual_overrides WHERE id = ?", (latest.iloc[0]['id'],))
+                conn.commit()
+                conn.close()
+                return {'status': 'ok', 'train_id': train_id, 'field': field, 'action': 'reverted'}
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to revert override: {e}")
 
         # ===== Supervisor Approvals Workflow (Redis-backed) =====
 

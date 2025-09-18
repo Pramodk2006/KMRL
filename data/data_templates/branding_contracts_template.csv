@@ -1,0 +1,7 @@
+contract_id,brand,train_id,hours_committed,start_date,end_date,priority,notes
+BC001,MetroCorp,T001,200,2025-01-01,2025-12-31,high,Main sponsor
+BC002,CityBank,T002,150,2025-06-01,2025-12-31,medium,Financial services
+BC003,TechCorp,T003,100,2025-03-01,2025-09-30,low,Technology partner
+BC004,RetailChain,T004,180,2025-02-01,2025-11-30,high,Retail partner
+BC005,LocalBiz,T005,80,2025-04-01,2025-10-31,low,Local business
+
