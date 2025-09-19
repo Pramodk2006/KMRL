@@ -46,6 +46,9 @@ class CustomConstraintEngine:
         
         train_job_data = trains.merge(job_cards, on='train_id', how='left')
         
+        # Fill NaN values in job_card_status with 'closed' to handle missing job cards
+        train_job_data['job_card_status'] = train_job_data['job_card_status'].fillna('closed')
+        
         for _, row in train_job_data.iterrows():
             train_id = row['train_id']
             is_eligible = True
@@ -256,7 +259,18 @@ class CustomConstraintEngine:
         eligible_trains, ineligible_trains = self.check_hard_constraints()
         
         if len(eligible_trains) > 0:
-            optimization_result = self.optimize_train_selection(eligible_trains)
+            # Convert eligible trains to list format expected by optimizer
+            formatted_eligible = []
+            for train in eligible_trains:
+                train_data = train.copy() if isinstance(train, dict) else {'train_id': train}
+                # Add required fields from trains DataFrame
+                if 'train_id' in train_data and self.data is not None:
+                    train_row = self.data['trains'][self.data['trains']['train_id'] == train_data['train_id']].iloc[0]
+                    for col in ['mileage_km', 'branding_hours_left', 'cleaning_slot_id', 'bay_geometry_score']:
+                        train_data[col] = train_row[col]
+                formatted_eligible.append(train_data)
+            
+            optimization_result = self.optimize_train_selection(formatted_eligible)
             self.solution_found = True
         else:
             optimization_result = {

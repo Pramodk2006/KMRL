@@ -94,6 +94,8 @@ class InteractiveWebDashboard:
             html.Div([
                 html.H3("🎮 Simulation Control", style={'color': '#1976d2', 'marginBottom': '15px'}),
                 html.Div([
+                    html.Button("⬇️ Import Published Plan", id="import-plan-btn", className="btn btn-info",
+                               style={'margin': '5px', 'padding': '8px 16px'}, n_clicks=0),
                     html.Button("▶️ Start", id="start-btn", className="btn btn-success", 
                                style={'margin': '5px', 'padding': '8px 16px'}, n_clicks=0),
                     html.Button("⏸️ Pause", id="pause-btn", className="btn btn-warning", 
@@ -112,6 +114,15 @@ class InteractiveWebDashboard:
 
             # Status Cards - FIXED: Show actual available service bays
             html.Div(id="status-cards", className="row", style={'marginBottom': '20px'}),
+
+            # Imported execution plan table
+            html.Div([
+                html.Div([
+                    html.H4("📝 Execution Plan (Imported)", style={'color': '#1976d2', 'marginBottom': '15px'}),
+                    html.Div(id='execution-plan')
+                ], style={'backgroundColor': 'white', 'padding': '20px', 'borderRadius': '8px',
+                         'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
+            ], className="row", style={'marginBottom': '20px'}),
 
             # Charts Row 1 - Bay Layout and Train Status
             html.Div([
@@ -176,6 +187,7 @@ class InteractiveWebDashboard:
 
             # Auto-refresh and storage components
             dcc.Interval(id='interval-component', interval=2000, n_intervals=0),
+            dcc.Store(id='imported-plan', data={}),
             dcc.Store(id='dashboard-state', data={})
 
         ], style={'padding': '20px', 'backgroundColor': '#f5f5f5', 'minHeight': '100vh'})
@@ -442,6 +454,69 @@ class InteractiveWebDashboard:
                           Input('interval-component', 'n_intervals'))
         def update_log(n):
             return self._create_event_log()
+
+        # Import plan button callback: fetch from React dashboard enriched endpoint
+        @self.app.callback(
+            Output('imported-plan', 'data'),
+            Input('import-plan-btn', 'n_clicks'),
+            prevent_initial_call=True
+        )
+        def import_plan(n_clicks):
+            try:
+                import requests
+                resp = requests.get('http://127.0.0.1:8061/api/dashboard/enriched', timeout=5)
+                data = resp.json() if resp.ok else {}
+                details = data.get('detailed_train_list', [])
+                # Partition imported plan
+                inducted = [t for t in details if t.get('inducted')]
+                inducted.sort(key=lambda x: (x.get('rank', 0) or 0))
+                backup = [t for t in details if not t.get('inducted') and str(t.get('status','')).lower() == 'standby']
+                maintenance = [t for t in details if str(t.get('status','')).lower() in ['maintenance', 'ineligible']]
+                return {
+                    'inducted': inducted,
+                    'backup': backup,
+                    'maintenance': maintenance
+                }
+            except Exception:
+                return {}
+
+        # Render execution plan table
+        @self.app.callback(
+            Output('execution-plan', 'children'),
+            [Input('imported-plan', 'data')]
+        )
+        def render_execution_plan(plan):
+            try:
+                if not plan or not plan.get('inducted'):
+                    return html.Div("No imported plan yet. Click 'Import Published Plan' after finalizing on 8061.",
+                                    className="alert alert-warning")
+                rows = []
+                for t in plan['inducted']:
+                    rows.append(html.Tr([
+                        html.Td(t.get('rank','')),
+                        html.Td(t.get('train_id','')),
+                        html.Td(t.get('bay_assignment','N/A')),
+                        html.Td(f"{t.get('priority_score',0):.1f}")
+                    ]))
+                table = html.Table([
+                    html.Thead(html.Tr([
+                        html.Th("Rank"), html.Th("Train"), html.Th("Bay"), html.Th("Score")
+                    ])),
+                    html.Tbody(rows)
+                ], style={'width': '100%', 'borderCollapse': 'collapse', 'border': '1px solid #ddd'})
+
+                return html.Div([
+                    table,
+                    html.Hr(),
+                    html.Div([
+                        html.Strong("Backup count: "), html.Span(str(len(plan.get('backup', []))))
+                    ]),
+                    html.Div([
+                        html.Strong("Maintenance count: "), html.Span(str(len(plan.get('maintenance', []))))
+                    ])
+                ])
+            except Exception as e:
+                return html.Div(f"Error rendering plan: {e}", className="alert alert-danger")
 
     def _create_bay_layout_figure(self):
         """FIXED: Create bay layout showing all 8 bays with proper spacing"""

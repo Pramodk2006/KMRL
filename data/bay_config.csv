@@ -1,6 +1,8 @@
 ﻿bay_id,bay_type,max_capacity,geometry_score,depot_id
 SB001,service,2,0.92,DEPOT_A
-SB002,cleaning,3,0.85,DEPOT_B
-SB003,inspection,4,0.78,DEPOT_C
+SB002,service,2,0.85,DEPOT_B
+SB003,service,2,0.78,DEPOT_C
 SB004,service,2,0.88,DEPOT_A
-SB005,cleaning,3,0.91,DEPOT_B
+SB005,service,2,0.91,DEPOT_B
+SB006,cleaning,3,0.75,DEPOT_A
+SB007,inspection,2,0.80,DEPOT_B

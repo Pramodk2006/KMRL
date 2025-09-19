@@ -24,7 +24,7 @@ def main():
     
     try:
         # Import and start the combined system
-        from combined_enterprise_main import KMRLCombinedIntelliFleetSystem
+        from main.combined_enterprise_main import KMRLCombinedIntelliFleetSystem
         
         print("✅ Initializing AI optimization components...")
         print("✅ Setting up digital twin engine...")

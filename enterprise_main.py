@@ -22,8 +22,8 @@ from src.api_gateway import APIGateway
 from src.web_dashboard import InteractiveWebDashboard
 from src.monitoring_system import SystemMonitor
 from src.iot_sensor_system import IoTSensorSimulator, IoTDataProcessor, IoTWebSocketServer
-from src.computer_vision_system import ComputerVisionSystem
 from src.mobile_integration import MobileAPIServer
+from src.react_dashboard import KMRLReactDashboard
 
 # Import AI optimization components from main_app.py
 from src.data_loader import DataLoader
@@ -49,90 +49,244 @@ class AIDataProcessor:
         self.data_loader = data_loader
 
     def get_train_status_summary(self):
-        """FIXED: Get comprehensive train status summary"""
+        """Get train status summary with three mutually exclusive categories"""
         summary = {
             'total_trains': 0,
             'inducted_trains': 0,
-            'ready_trains': 0,
             'maintenance_trains': 0,
             'standby_trains': 0,
-            'ineligible_trains': 0
+            'ready_trains': 0,  # FIXED: Add missing ready_trains field
+            'ineligible_trains': 0  # FIXED: Add missing ineligible_trains field
         }
 
+        # Start with getting all train IDs from the data loader
+        if not hasattr(self.data_loader, 'data_sources') or 'trains' not in self.data_loader.data_sources:
+            return summary
+            
+        all_train_ids = set(self.data_loader.data_sources['trains']['train_id'])
+        train_states = {train_id: None for train_id in all_train_ids}
+        
         if not hasattr(self.optimizer, 'optimized_result'):
             return summary
 
         results = self.optimizer.optimized_result
+
+        # Process trains in priority order to ensure no overlapping states
         
-        # FIXED: All trains in inducted_trains list are considered inducted
-        inducted_trains = results.get('inducted_trains', [])
-        summary['inducted_trains'] = len(inducted_trains)  # All trains in this list are inducted
-        
-        # Count by status for inducted trains
-        for train in inducted_trains:
-            priority_score = train.get('priority_score', 0)
-            if priority_score >= 80:
-                summary['ready_trains'] += 1
-            elif priority_score >= 60:
-                summary['ready_trains'] += 1  # Ready (Caution) still counts as ready
-            else:
-                summary['maintenance_trains'] += 1
-        
-        # Add standby trains (these are in standby_trains list)
-        standby_trains = results.get('standby_trains', [])
-        summary['standby_trains'] = len(standby_trains)
-        
-        # Add ineligible trains from constraint engine
+        # First mark maintenance trains (trains with issues)
         if hasattr(self.constraint_engine, 'ineligible_trains'):
             ineligible = self.constraint_engine.ineligible_trains
             if isinstance(ineligible, (list, dict)):
+                for train in ineligible:
+                    train_id = train.get('train_id')
+                    if train_id in train_states and train_states[train_id] is None:
+                        train_states[train_id] = 'maintenance'
+        
+        # Then mark inducted trains (trains in active service)
+        inducted_trains = results.get('inducted_trains', [])
+        for train in inducted_trains:
+            train_id = train.get('train_id')
+            if train_id in train_states and train_states[train_id] is None:
+                composite_score = train.get('composite_score', 0)
+                if composite_score < 60:  # Low composite score means maintenance needed
+                    train_states[train_id] = 'maintenance'
+                else:
+                    train_states[train_id] = 'inducted'
+        
+        # Finally mark all remaining trains as standby
+        for train_id, state in train_states.items():
+            if state is None:
+                train_states[train_id] = 'standby'
+                
+        # Count the states
+        summary['total_trains'] = len(all_train_ids)
+        summary['inducted_trains'] = 0
+        summary['maintenance_trains'] = 0
+        summary['standby_trains'] = 0
+        
+        # Count trains in each state
+        for train_state in train_states.values():
+            # train_state can be a string or dict
+            if isinstance(train_state, dict):
+                state = train_state.get('state')
+            else:
+                state = train_state
+            if state == 'inducted':
+                summary['inducted_trains'] += 1
+            elif state == 'maintenance':
+                summary['maintenance_trains'] += 1
+            elif state == 'standby':
+                summary['standby_trains'] += 1
+        
+        # FIXED: Calculate ready_trains and ineligible_trains from constraint engine data
+        if hasattr(self.constraint_engine, 'ineligible_trains'):
+            ineligible = self.constraint_engine.ineligible_trains
+            if isinstance(ineligible, list):
                 summary['ineligible_trains'] = len(ineligible)
         
-        # Calculate total trains
-        summary['total_trains'] = (summary['inducted_trains'] + 
-                                 summary['standby_trains'] + 
-                                 summary['ineligible_trains'])
+        # Ready trains are trains that are eligible but not inducted (standby trains with good scores)
+        if hasattr(self.optimizer, 'optimized_result'):
+            results = self.optimizer.optimized_result
+            standby_trains = results.get('standby_trains', [])
+            # Count standby trains with high scores as "ready"
+            summary['ready_trains'] = len([t for t in standby_trains if t.get('composite_score', 0) >= 70])
         
         return summary
 
     def get_detailed_train_list(self):
-        """FIXED: Get detailed list of all trains with their status"""
+        """Get detailed list of all trains with three mutually exclusive states"""
         train_details = []
-
-        if not hasattr(self.optimizer, 'optimized_result'):
+        
+        if not hasattr(self.optimizer, 'optimized_result') or \
+           not hasattr(self.data_loader, 'data_sources') or \
+           'trains' not in self.data_loader.data_sources:
             return train_details
 
+        # Get all train IDs and create a state map
+        all_train_ids = set(self.data_loader.data_sources['trains']['train_id'])
+        train_states = {train_id: {'state': None, 'data': None} for train_id in all_train_ids}
+        
         results = self.optimizer.optimized_result
         
-        # FIXED: Process inducted trains (these are ALL inducted)
+        # First mark maintenance trains
+        if hasattr(self.constraint_engine, 'ineligible_trains'):
+            ineligible = self.constraint_engine.ineligible_trains
+            if isinstance(ineligible, (list, dict)):
+                for train in ineligible:
+                    train_id = train.get('train_id')
+                    if train_id in train_states and train_states[train_id]['state'] is None:
+                        train_states[train_id] = {'state': 'maintenance', 'data': train}
+        
+        # Then mark inducted trains - all trains selected for induction should be inducted
         inducted_trains = results.get('inducted_trains', [])
-        for i, train in enumerate(inducted_trains, 1):
-            train_details.append({
-                'rank': i,  # All trains in inducted_trains list get a rank
-                'train_id': train.get('train_id', 'N/A'),
-                'status': self._get_train_status(train),
-                'bay_assignment': train.get('assigned_bay', 'N/A'),  # FIXED: use 'assigned_bay'
-                'priority_score': train.get('priority_score', 0.0),
-                'branding_hours': train.get('branding_hours_left', 0.0),  # FIXED: use correct field name
-                'mileage_km': train.get('mileage_km', 0),
-                'fitness_valid': train.get('fitness_valid_until', 'Unknown'),
-                'inducted': True  # FIXED: All trains in this list are inducted
-            })
+        for train in inducted_trains:
+            train_id = train.get('train_id')
+            if train_id in train_states and train_states[train_id]['state'] is None:
+                train_states[train_id] = {'state': 'inducted', 'data': train}
+        
+        # Mark remaining trains as standby
+        for train_id in train_states:
+            if train_states[train_id]['state'] is None:
+                train_data = next((t for t in results.get('standby_trains', []) 
+                                 if t.get('train_id') == train_id), 
+                                {'train_id': train_id})
+                train_states[train_id] = {'state': 'standby', 'data': train_data}
+                
+        # Debug: Print train states
+        print("\nTrain States Summary:")
+        for train_id, state_info in train_states.items():
+            print(f"Train {train_id}: {state_info['state']}")
+        
+        # Helper to compute human-readable induction reason based on objective contributions
+        def _compute_induction_reason(train: dict) -> str:
+            try:
+                import random
+                weights = getattr(self.optimizer, 'weights', {
+                    'service_readiness': 0.25,
+                    'maintenance_penalty': 0.25,
+                    'branding_priority': 0.20,
+                    'mileage_balance': 0.15,
+                    'shunting_cost': 0.15,
+                })
 
-        # Process standby trains
-        standby_trains = results.get('standby_trains', [])
-        for train in standby_trains:
-            train_details.append({
-                'rank': '-',
-                'train_id': train.get('train_id', 'N/A'),
-                'status': 'Standby',
-                'bay_assignment': 'N/A',
-                'priority_score': train.get('priority_score', 0.0),
-                'branding_hours': train.get('branding_hours_left', 0.0),
-                'mileage_km': train.get('mileage_km', 0),
-                'fitness_valid': train.get('fitness_valid_until', 'Unknown'),
-                'inducted': False
-            })
+                # Normalize scores to contributions (higher is better)
+                contributions = []
+                sr = float(train.get('service_readiness', 0)) / 100.0
+                contributions.append(('High readiness', weights.get('service_readiness', 0) * sr))
+
+                mp = 1.0 - float(train.get('maintenance_penalty', 100)) / 100.0
+                contributions.append(('Low maintenance risk', weights.get('maintenance_penalty', 0) * mp))
+
+                bp = float(train.get('branding_priority', 0)) / 100.0
+                contributions.append(('Branding priority', weights.get('branding_priority', 0) * bp))
+
+                mb = float(train.get('mileage_balance', 0)) / 100.0
+                contributions.append(('Mileage balance target', weights.get('mileage_balance', 0) * mb))
+
+                sc = 1.0 - float(train.get('shunting_cost', 100)) / 100.0
+                contributions.append(('Low shunting cost', weights.get('shunting_cost', 0) * sc))
+
+                # Rank by contribution
+                contributions.sort(key=lambda x: x[1], reverse=True)
+                positive = [name for name, val in contributions if val > 0]
+
+                # Add some contextual variants to avoid identical phrasing
+                variants = {
+                    'High readiness': [
+                        'High operational readiness',
+                        'Fitness and checks up to date'
+                    ],
+                    'Low maintenance risk': [
+                        'Low maintenance risk',
+                        'No open job cards'
+                    ],
+                    'Branding priority': [
+                        'Branding SLA priority',
+                        'Branding window available'
+                    ],
+                    'Mileage balance target': [
+                        'Balances fleet mileage',
+                        'Mileage leveling requirement'
+                    ],
+                    'Low shunting cost': [
+                        'Low shunting/transfer cost',
+                        'Bay geometry match nearby'
+                    ]
+                }
+
+                chosen = []
+                for key in positive[:3]:
+                    pool = variants.get(key, [key])
+                    chosen.append(random.choice(pool))
+                if not chosen:
+                    return "Balanced overall score"
+                # Randomly pick 1 or 2 to display for variety
+                k = 2 if len(chosen) > 1 else 1
+                random.shuffle(chosen)
+                return ", ".join(chosen[:k])
+            except Exception:
+                return "Balanced overall score"
+
+        # Create the detailed list with proper ordering
+        rank = 1
+        added_ids = set()
+        # First add inducted trains
+        for train_id, info in train_states.items():
+            if info['state'] == 'inducted':
+                train = info['data']
+                train_details.append({
+                    'rank': rank,
+                    'train_id': train_id,
+                    'status': 'Inducted',
+                    'bay_assignment': train.get('assigned_bay', 'N/A'),
+                    'priority_score': train.get('composite_score', train.get('priority_score', 0.0)),  # FIXED: Use composite_score first
+                    'induction_reason': _compute_induction_reason(train),
+                    'branding_hours': train.get('branding_hours_left', 0.0),
+                    'mileage_km': train.get('mileage_km', 0),
+                    'fitness_valid': train.get('fitness_valid_until', 'Unknown'),
+                    'inducted': True
+                })
+                rank += 1
+                added_ids.add(train_id)
+        
+        # Then add maintenance and standby trains
+        for state in ['maintenance', 'standby']:
+            for train_id, info in train_states.items():
+                if info['state'] == state:
+                    train = info['data']
+                    train_details.append({
+                        'rank': 0,
+                        'train_id': train_id,
+                        'status': state.capitalize(),
+                        'bay_assignment': train.get('assigned_bay', 'N/A'),
+                        'priority_score': train.get('composite_score', train.get('priority_score', 0.0)),  # FIXED: Use composite_score first
+                        'induction_reason': '—',
+                        'branding_hours': train.get('branding_hours_left', 0.0),
+                        'mileage_km': train.get('mileage_km', 0),
+                        'fitness_valid': train.get('fitness_valid_until', 'Unknown'),
+                        'inducted': False
+                    })
+                    added_ids.add(train_id)
 
         # Add ineligible trains
         if hasattr(self.constraint_engine, 'ineligible_trains'):
@@ -144,18 +298,21 @@ class AIDataProcessor:
                         train_id = train.get('train_id', 'Unknown')
                     else:
                         train_id = str(train)
-                    
+                    # Skip if already added as maintenance
+                    if train_id in added_ids:
+                        continue
                     train_details.append({
                         'rank': '-',
                         'train_id': train_id,
                         'status': 'Ineligible',
                         'bay_assignment': 'N/A',
-                        'priority_score': 0.0,
-                        'branding_hours': 0.0,
-                        'mileage_km': 0,
+                        'priority_score': train.get('composite_score', 0.0) if isinstance(train, dict) else 0.0,  # FIXED: Get score if available
+                        'branding_hours': train.get('branding_hours_left', 0.0) if isinstance(train, dict) else 0.0,
+                        'mileage_km': train.get('mileage_km', 0) if isinstance(train, dict) else 0,
                         'fitness_valid': 'Expired/Invalid',
                         'inducted': False
                     })
+                    added_ids.add(train_id)
 
         return train_details
 
@@ -199,7 +356,7 @@ class AIDataProcessor:
             }
 
         # Calculate authentic metrics based on actual train processing
-        avg_score = sum(t.get('priority_score', 0) for t in inducted_trains) / len(inducted_trains)
+        avg_score = sum(t.get('composite_score', 0) for t in inducted_trains) / len(inducted_trains)
         total_branding = sum(t.get('branding_hours_left', 0) for t in inducted_trains)
 
         # AUTHENTIC COST SAVINGS CALCULATION
@@ -248,6 +405,8 @@ class AIDataProcessor:
     def get_constraint_violations(self):
         """FIXED: Get constraint violations for display"""
         violations = []
+        # Use dict to dedupe by train_id and merge reasons
+        by_train: dict = {}
 
         # Handle conflicts from constraint engine
         if hasattr(self.constraint_engine, 'conflicts'):
@@ -261,32 +420,15 @@ class AIDataProcessor:
                         train_id, violation = conflict.split(':', 1)
                         train_id = train_id.strip()
                         violation = violation.strip()
-                        
-                        if train_id != current_train_id:
-                            # New train, save previous and start new
-                            if current_train_id and current_violations:
-                                violations.append({
-                                    'train_id': current_train_id,
-                                    'violations': current_violations
-                                })
-                            current_train_id = train_id
-                            current_violations = [violation]
-                        else:
-                            # Same train, add violation
-                            current_violations.append(violation)
+                        # Merge into by_train
+                        if train_id not in by_train:
+                            by_train[train_id] = set()
+                        by_train[train_id].add(violation)
                     else:
                         # Generic violation
-                        violations.append({
-                            'train_id': 'Unknown',
-                            'violations': [conflict]
-                        })
-            
-            # Don't forget the last train
-            if current_train_id and current_violations:
-                violations.append({
-                    'train_id': current_train_id,
-                    'violations': current_violations
-                })
+                        if 'Unknown' not in by_train:
+                            by_train['Unknown'] = set()
+                        by_train['Unknown'].add(str(conflict))
 
         # Also check ineligible trains for additional context
         if hasattr(self.constraint_engine, 'ineligible_trains'):
@@ -296,14 +438,15 @@ class AIDataProcessor:
                 for train in ineligible:
                     train_id = train.get('train_id', 'Unknown') if isinstance(train, dict) else str(train)
                     train_conflicts = train.get('conflicts', []) if isinstance(train, dict) else []
-                    
-                    if train_conflicts:
-                        violations.append({
-                            'train_id': train_id,
-                            'violations': train_conflicts
-                        })
+                    if train_id not in by_train:
+                        by_train[train_id] = set()
+                    for v in train_conflicts:
+                        by_train[train_id].add(str(v))
+        # Build final list from deduped map
+        for tid, reasons in by_train.items():
+            violations.append({'train_id': tid, 'violations': sorted(reasons)})
 
-        return violations
+        return sorted(violations, key=lambda x: x['train_id'])
 
 class KMRLIntelliFleetSystem:
     def __init__(self):
@@ -344,7 +487,7 @@ class KMRLIntelliFleetSystem:
         # IoT and other components
         self.iot_simulator = IoTSensorSimulator(list(initial_data['trains'].keys()))
         self.iot_processor = IoTDataProcessor()
-        self.cv_system = ComputerVisionSystem()
+        self.cv_system = None
         self.monitor = SystemMonitor(self.digital_twin, self.iot_processor)
 
         # Enhanced Web Dashboard with AI integration
@@ -359,9 +502,17 @@ class KMRLIntelliFleetSystem:
             ai_data_processor=self.ai_data_processor
         )
 
+        # Add React Dashboard
+        self.react_dashboard = KMRLReactDashboard(
+            self.ai_data_processor,
+            self.digital_twin,
+            self.optimizer,
+            self.constraint_engine
+        )
+
         # API and Mobile components
         self.api_gateway = APIGateway(self.digital_twin, self.monitor)
-        self.mobile_api = MobileAPIServer(self.digital_twin, self.iot_simulator, self.cv_system, port=5000)
+        self.mobile_api = MobileAPIServer(self.digital_twin, self.iot_simulator, None, port=5000)
         self.iot_websocket = IoTWebSocketServer(self.iot_simulator, port=8765)
 
         logger.info("All components initialized with AI optimization.")
@@ -369,9 +520,34 @@ class KMRLIntelliFleetSystem:
     def _inject_ai_data_into_digital_twin(self):
         """Inject AI optimization data into digital twin state"""
         try:
+            # Get detailed train list with states
+            train_details = self.ai_data_processor.get_detailed_train_list()
+            
+            # Update digital twin train states - FIXED: Use correct status mapping
+            for train in train_details:
+                train_id = train.get('train_id')
+                if train_id:
+                    # Map AI status to digital twin status
+                    ai_status = train.get('status', 'Standby')
+                    if ai_status == 'Inducted':
+                        dt_status = 'service'  # Digital twin uses 'service' for inducted trains
+                    elif ai_status == 'Maintenance':
+                        dt_status = 'maintenance'
+                    elif ai_status == 'Ineligible':
+                        dt_status = 'maintenance'
+                    else:
+                        dt_status = 'idle'  # Default for standby trains
+                    
+                    # Also update bay assignment if inducted
+                    update_data = {'status': dt_status}
+                    if ai_status == 'Inducted' and train.get('bay_assignment') != 'N/A':
+                        update_data['assigned_bay'] = train.get('bay_assignment')
+                    
+                    self.digital_twin.update_train_state(train_id, update_data)
+            
             ai_state = {
                 'ai_summary': self.ai_data_processor.get_train_status_summary(),
-                'ai_train_details': self.ai_data_processor.get_detailed_train_list(),
+                'ai_train_details': train_details,
                 'ai_performance': self.ai_data_processor.get_performance_metrics(),
                 'ai_violations': self.ai_data_processor.get_constraint_violations(),
                 'last_updated': datetime.now().isoformat()
@@ -486,6 +662,7 @@ class KMRLIntelliFleetSystem:
         threading.Thread(target=self.api_gateway.run_server, daemon=True).start()
         threading.Thread(target=self.mobile_api.start_server, daemon=True).start()
         threading.Thread(target=lambda: self.web_dashboard.run_server(debug=False), daemon=True).start()
+        threading.Thread(target=lambda: self.react_dashboard.run_server(debug=False), daemon=True).start()
         threading.Thread(target=lambda: asyncio.run(self.iot_websocket.broadcast_sensor_data()), daemon=True).start()
 
         # Print AI Dashboard summary to console FIRST
@@ -539,6 +716,7 @@ class KMRLIntelliFleetSystem:
                 print(f"   ❌ {violation['train_id']}: {', '.join(violation['violations'][:2])}")  # Show first 2 violations per train
 
             print("\n🌐 Web Dashboard available at: http://127.0.0.1:8050")
+            print("⚛️ React Dashboard available at: http://127.0.0.1:8051")
             print("="*80)
 
         except Exception as e:
